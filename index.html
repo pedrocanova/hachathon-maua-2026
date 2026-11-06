@@ -38,7 +38,7 @@ canvas{width:100%;height:120px;background:var(--card);border-radius:10px}
 #barra{position:fixed;left:0;right:0;bottom:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--card);border-top:2px solid var(--pri);display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;z-index:20}
 #barra button{margin:0;padding:10px 14px}
 #sos{font-weight:700;letter-spacing:.05em;min-width:84px}
-#monwrap,#parconf{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#monwrap,#parconf,#sosconf{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 #monst{font-weight:600}
 #ema{position:fixed;inset:0;background:#0006;z-index:10;overflow:auto;padding:16px 16px 140px}
 #emacorpo{max-width:560px;margin:auto;background:var(--bg);border-radius:16px;padding:12px 16px}
@@ -60,6 +60,7 @@ pre{white-space:pre-wrap;word-break:break-word;font-size:12px;max-height:320px;o
 <div id="ema" role="dialog" aria-modal="true" aria-label="Check-in" hidden><div id="emacorpo"></div></div>
 <div id="barra" hidden>
   <button id="sos" aria-label="SOS: pedir ajuda agora">SOS</button>
+  <span id="sosconf" role="alertdialog" aria-label="Confirmar SOS" hidden><b>Pedir ajuda agora?</b> <button id="sosSim">Sim, pedir ajuda</button><button class="sec" id="sosNao">Cancelar</button></span>
   <span id="monwrap" role="status" hidden>
     <span id="monst">Monitorando…</span>
     <button class="sec" id="parar">Parar</button>

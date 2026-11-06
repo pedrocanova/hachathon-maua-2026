@@ -17,7 +17,7 @@ python -m pytest tests          # Playwright (Python); usa o Edge instalado. Sem
 
 ## Fluxo
 cadastro/triagem → perfil de risco → monitoramento da pulseira personalizado pelo perfil → (a qualquer momento) **Encerrar sessão**.
-Barra fixa durante a sessão: **SOS**, "Monitorando… / Parar" e "Encerrar sessão".
+Barra fixa durante a sessão: **SOS** (pede confirmação, que some sozinha em 10 s; a tela de ajuda tem "Voltar" para onde a pessoa estava, e o alerta continua registrado), "Monitorando… / Parar" e "Encerrar sessão".
 
 ## Arquivos
 - `rules.json`: **toda regra clínica** (arquivo auditável): perguntas q1–q35 (+ q16_24h, q35_dias), `derivacoes`, regras de nível, `perfis`, `ema_itens`, `regras_ema`, sensor.

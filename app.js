@@ -217,12 +217,14 @@ function porque(){
   const info = S.info.map(m => `<li><b>${esc(m.motivo)}:</b> ${esc(m.orientacao)}</li>`).join('');
   return `<details class=card id=porque open><summary><b>Por que esta orientação?</b></summary><ul>${ms}</ul>${info ? `<b>Informações para você</b><ul>${info}</ul>` : ''}</details>`;
 }
-function resultado(){
-  if (S.nivel === 'vermelho') return telaVermelho(false);
+function resultado(depoisDoSos){
+  if (S.nivel === 'vermelho' && depoisDoSos !== true) return telaVermelho(false); // cliques passam o evento: comparar com true
   const n = S.nivel, suic = S.motivos.some(m => m.tag === 'suicidio'), pf = perfil();
   tema(temaPaciente(n));
   const nComp = S.compFeito ? 0 : visiveis('complementar').length;
-  const texto = n === 'amarelo'
+  const texto = n === 'vermelho'
+    ? '<p>Seu pedido de ajuda ficou registrado e a equipe vai ver. Se precisar de novo, toque em SOS ou ligue 192.</p>'
+    : n === 'amarelo'
     ? '<p>Seria bom falar com a equipe do CAPS AD ou da UBS hoje ou amanhã. Neste protótipo, o serviço receberia um aviso para entrar em contato com você.</p><p>Se piorar, toque em SOS ou ligue 192.</p>'
     : '<p>Suas respostas não mostram sinais de alerta agora. Continue se cuidando: água, comida e sono.</p>';
   $(`<small>Resultado da triagem de risco</small><h1 id=nivel data-nivel=${n}>${ROTULO[n]}</h1>${statusRevisao()}
@@ -240,8 +242,10 @@ function resultado(){
   on('comp', complementar); on('mon', monitor); on('respirar', respirar); on('painel', painel); on('resumo', () => telaResumo(resultado)); on('refazer', recomecar);
 }
 // vermelho: tela única, sem escolha de serviço e sem exercício de respiração
-function telaVermelho(novoAlerta){
+let voltarVermelho = null;
+function telaVermelho(novoAlerta, voltar){
   if (novoAlerta){ S.alertaId++; store.gravar(); }
+  voltarVermelho = voltar || (S.pul.ativo ? monitor : null);
   tema('crise');
   const suic = S.motivos.some(m => m.tag === 'suicidio'), locOk = S.locAlerta === S.alertaId;
   $(`<h1 id=nivel data-nivel=vermelho>Busque ajuda agora</h1>
@@ -255,9 +259,10 @@ function telaVermelho(novoAlerta){
     : `<b>Compartilhar sua localização?</b><p class=aviso>Só neste alerta, com o seu contato de confiança e o serviço de saúde. Fora de alertas, a localização nunca é compartilhada.</p>
        <button id=locsim>Sim, compartilhar neste alerta</button><button class=sec id=locnao>Agora não</button>`}</div>
   ${porque()}${statusRevisao()}
-  ${S.pul.ativo ? '<button class=sec id=mon>Voltar ao acompanhamento</button>' : ''}
+  ${voltarVermelho ? '<button class="big sec" id=voltarajuda>Voltar</button>' : ''}
   <button class=sec id=painel>Visão do profissional (demonstração)</button>`);
-  on('painel', painel); on('mon', monitor);
+  on('painel', painel);
+  on('voltarajuda', () => { registrar('paciente', S.nivel, 'Saiu da tela de ajuda (o alerta continua registrado)'); store.gravar(); voltarVermelho(); });
   on('locsim', () => { S.locAlerta = S.alertaId; registrar('paciente', 'vermelho', 'Localização compartilhada neste alerta (consentimento)'); store.gravar(); el('locbox').innerHTML = locTexto(); });
   on('locnao', () => { el('locbox').innerHTML = '<p class=aviso>Tudo bem. Sua localização não foi compartilhada.</p>'; });
   on('avisar', () => {
@@ -270,9 +275,23 @@ function telaVermelho(novoAlerta){
 }
 const coords = () => `${GPS_SIM.lat.toFixed(4)}, ${GPS_SIM.lon.toFixed(4)}`;
 const locTexto = () => `<p id=loc><b>Localização compartilhada neste alerta (simulada):</b> ${coords()}</p>`;
+// SOS: confirmação na barra (some sozinha em 10 s, para evitar toque acidental)
+let sosTimer = null;
+function pedirSos(){ el('sos').hidden = true; el('sosconf').hidden = false; clearTimeout(sosTimer); sosTimer = setTimeout(cancelarSos, 10000); }
+function cancelarSos(){ clearTimeout(sosTimer); el('sos').hidden = false; el('sosconf').hidden = true; }
+// para onde o "Voltar" da tela de ajuda leva: a tela em que a pessoa estava
+function telaAtual(){
+  if (el('hud')) return monitor;
+  if (el('app').querySelector('section[data-q]')) return triagem;
+  if (el('profok')) return painel;
+  if (el('perfil')) return () => resultado(true);
+  return S.pul.ativo ? monitor : S.etapa === 'resultado' ? () => resultado(true) : triagem;
+}
 function sos(){
+  cancelarSos();
+  const voltar = el('app').querySelector('#samu') ? voltarVermelho : telaAtual();
   aplicar({nivel:'vermelho', motivos:[{nivel:'vermelho', motivo:'Você pediu ajuda pelo botão SOS.'}]}, 'SOS');
-  fecharEma(); telaVermelho(true);
+  fecharEma(); telaVermelho(true, voltar);
 }
 function respirar(){
   $(`<h1>Respire com o círculo</h1><div id=resp></div>
@@ -386,7 +405,8 @@ const Pulseira = {
 const podeEma = () => !E && S.etapa === 'resultado';
 function barra(){
   el('barra').hidden = !el('app').dataset.sessao; // SOS e "Encerrar sessão" sempre visíveis durante a sessão
-  el('monwrap').hidden = !S.pul.ativo; el('parconf').hidden = true; el('parar').hidden = false;
+  el('monwrap').hidden = !S.pul.ativo;
+  if (!S.pul.ativo){ el('parconf').hidden = true; el('parar').hidden = false; } // não fecha a confirmação de "Parar" se um check-in abrir
   el('monst').textContent = E ? 'Monitorando… (check-in aberto)' : 'Monitorando…';
 }
 function hud(pf, l){
@@ -502,14 +522,14 @@ function telaEncerrar(){
   <button class=big id=encerrarok>Encerrar e apagar tudo</button><button class=sec id=cancelar>Cancelar</button>`);
   on('exportar', () => telaResumo(telaEncerrar)); on('cancelar', volta);
   on('encerrarok', () => {
-    Pulseira.parar('Sessão encerrada'); fecharEma(); store.apagar(); S = novoEstado(); delete el('app').dataset.sessao; Pulseira.fc = []; Pulseira.mov = []; Pulseira.n = 0;
+    Pulseira.parar('Sessão encerrada'); fecharEma(); cancelarSos(); voltarVermelho = null; store.apagar(); S = novoEstado(); delete el('app').dataset.sessao; Pulseira.fc = []; Pulseira.mov = []; Pulseira.n = 0;
     barra(); consentimento('<div class=card id=encerrada>Sessão encerrada. Seus dados foram apagados deste aparelho.</div>');
   });
 }
 
 fetch('rules.json').then(r => r.json()).then(j => {
   R = j;
-  on('sos', sos); on('encerrar', telaEncerrar);
+  on('sos', pedirSos); on('sosSim', sos); on('sosNao', cancelarSos); on('encerrar', telaEncerrar);
   on('parar', () => { el('parar').hidden = true; el('parconf').hidden = false; });
   on('parSim', () => { Pulseira.parar(); el('hud') ? resultado() : barra(); });
   on('parNao', () => { el('parar').hidden = false; el('parconf').hidden = true; });

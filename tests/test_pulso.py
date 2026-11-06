@@ -294,7 +294,7 @@ def test_sos_e_localizacao_so_com_consentimento(page):
     responder(page, {**VERDE, "q6": CONTATO})
     page.click("#mon")
     assert "-23.55" not in page.content()
-    page.click("#sos")
+    page.click("#sos"); page.click("#sosSim")
     assert nivel(page) == "vermelho"
     expect(page.locator("#samu")).to_be_visible()
     expect(page.locator("#loc")).to_have_count(0)
@@ -305,6 +305,53 @@ def test_sos_e_localizacao_so_com_consentimento(page):
     expect(page.locator("#avisado")).to_contain_text("PROTÓTIPO")
     expect(page.locator("#avisado")).to_contain_text("-23.55")
     assert ativo(page)                                             # SOS não para o monitoramento
+
+
+def test_sos_pede_confirmacao_e_cancela(page):
+    iniciar(page)
+    responder(page, VERDE)
+    page.click("#sos")
+    expect(page.locator("#sosconf")).to_be_visible()
+    expect(page.locator("#samu")).to_have_count(0)                   # nada acontece antes de confirmar
+    page.click("#sosNao")
+    expect(page.locator("#sosconf")).to_be_hidden(); expect(page.locator("#sos")).to_be_visible()
+    assert nivel(page) == "verde"
+
+
+def test_sos_confirmacao_expira_sozinha(page):
+    iniciar(page)
+    responder(page, VERDE)
+    page.click("#sos")
+    expect(page.locator("#sos")).to_be_visible(timeout=12000)
+    expect(page.locator("#sosconf")).to_be_hidden()
+
+
+def test_sos_voltar_ao_monitoramento(page):
+    iniciar(page)
+    responder(page, VERDE)
+    page.click("#mon")
+    page.click("#sos"); page.click("#sosSim")
+    page.click("#voltarajuda")
+    expect(page.locator("#hud")).to_be_visible()
+    expect(page.locator("#nivelmon")).to_have_attribute("data-nivel", "vermelho")   # o alerta continua registrado
+    assert ativo(page)
+
+
+def test_sos_voltar_durante_triagem(page):
+    iniciar(page)
+    responder(page, VERDE, ate="q7")
+    page.click("#sos"); page.click("#sosSim")
+    page.click("#voltarajuda")
+    expect(page.locator("#app section[data-q=q7]")).to_be_visible()
+
+
+def test_sos_voltar_ao_resultado(page):
+    iniciar(page)
+    responder(page, VERDE)
+    page.click("#sos"); page.click("#sosSim")
+    page.click("#voltarajuda")
+    expect(page.locator("#perfil")).to_be_visible()
+    expect(page.locator("#app")).to_contain_text("pedido de ajuda ficou registrado")
 
 
 # ---------- f) ausente nunca verde ----------
