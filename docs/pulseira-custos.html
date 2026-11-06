@@ -22,36 +22,37 @@ button{font:inherit;padding:8px 12px;margin:8px 8px 0 0}
 <p class=aviso>Protótipo. Preencha os valores cotados. Campos vazios = "a cotar" e não entram no total. Os valores ficam só neste navegador.</p>
 <p><b>Custo mensal</b> = hardware ÷ vida útil (meses) + dados móveis + plataforma/nuvem + suporte e reposição.</p>
 <div class=tab><table>
-<thead><tr><th>Item</th><th>Custo único (R$)</th><th>Vida útil (meses)</th><th>Custo mensal (R$)</th><th>Status</th><th>Fonte</th><th>Mensal calculado</th></tr></thead>
+<thead><tr><th>Item</th><th>Custo único (R$)</th><th>Vida útil (meses)</th><th>Custo mensal (R$)</th><th>Status</th><th>Fonte</th><th>Entra no total</th><th>Mensal calculado</th></tr></thead>
 <tbody id=linhas></tbody>
-<tfoot><tr><td colspan=6>Total mensal por paciente <span id=parcial></span></td><td class=num id=total></td></tr></tfoot>
+<tfoot><tr><td colspan=7>Total mensal por paciente <span id=parcial></span></td><td class=num id=total></td></tr></tfoot>
 </table></div>
 <button id=limpar>Restaurar valores iniciais</button>
-<p class=aviso>R$ 250/mês: valor informado pela equipe, <b>somente</b> para dados móveis/localização (item b). Premissa a validar; fonte a preencher.</p>
+<p class=aviso>R$ 250/mês: valor informado pela equipe, <b>somente</b> para dados móveis/localização da pulseira (item b). Premissa a validar; fonte a preencher. GPS e atividade podem vir da pulseira e/ou do celular: se a pulseira usar só o celular para se conectar, desmarque "Entra no total".</p>
 </main>
 <script>
 const INICIAL = [
-  {item:'(a) Hardware: pulseira (PPG, acelerômetro, GPS, Wi-Fi, módulo de dados, bateria, carcaça)', unico:'', vida:'', mensal:null, status:'a cotar', fonte:''},
-  {item:'(a) Hardware: carregador e cabo', unico:'', vida:'', mensal:null, status:'a cotar', fonte:''},
-  {item:'(b) Dados móveis para localização e envio das leituras', unico:null, vida:null, mensal:'250', status:'premissa a validar (informado pela equipe)', fonte:'a preencher', premissa:true},
-  {item:'(c) Plataforma/nuvem', unico:null, vida:null, mensal:'', status:'a cotar', fonte:''},
-  {item:'(d) Suporte técnico', unico:null, vida:null, mensal:'', status:'a cotar', fonte:''},
-  {item:'(d) Reposição (perda, quebra, bateria)', unico:null, vida:null, mensal:'', status:'a cotar', fonte:''}
+  {item:'(a) Hardware: pulseira BLE (PPG, acelerômetro, GPS, motor de vibração, bateria, case IP67; módulo de dados se houver) + montagem, homologação Anatel e eventual enquadramento ANVISA. Componentes do protótipo: R$ 40–60 (não inclui os demais itens)', unico:'', vida:'', mensal:null, status:'a cotar', fonte:'', incluir:true},
+  {item:'(a) Hardware: carregador e cabo', unico:'', vida:'', mensal:null, status:'a cotar', fonte:'', incluir:true},
+  {item:'(b) Dados móveis próprios da pulseira (localização e envio das leituras sem depender do celular). Entra quando o GPS/conexão estiver na pulseira; desmarque se a pulseira usar só o celular', unico:null, vida:null, mensal:'250', status:'premissa a validar (informado pela equipe)', fonte:'a preencher', premissa:true, incluir:true},
+  {item:'(c) Plataforma/nuvem', unico:null, vida:null, mensal:'', status:'a cotar', fonte:'', incluir:true},
+  {item:'(d) Suporte técnico', unico:null, vida:null, mensal:'', status:'a cotar', fonte:'', incluir:true},
+  {item:'(d) Reposição (perda, quebra, bateria)', unico:null, vida:null, mensal:'', status:'a cotar', fonte:'', incluir:true}
 ];
-const K = 'pulso_custos_v1';
+const K = 'pulso_custos_v3';
 let L; try { L = JSON.parse(localStorage.getItem(K)) || structuredClone(INICIAL); } catch { L = structuredClone(INICIAL); }
 const n = s => { const x = parseFloat(String(s ?? '').replace(/\./g, '').replace(',', '.')); return Number.isFinite(x) ? x : null; };
 const brl = x => x.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 const campo = (i, k) => L[i][k] === null ? '<td>—</td>' : `<td><input data-i=${i} data-k=${k} value="${String(L[i][k]).replace(/"/g, '&quot;')}" placeholder="${k === 'fonte' ? 'a preencher' : 'a cotar'}"></td>`;
 function mensal(l){ if (l.mensal !== null) return n(l.mensal); const u = n(l.unico), v = n(l.vida); return u !== null && v ? u / v : null; }
 function desenhar(){
-  document.getElementById('linhas').innerHTML = L.map((l, i) => `<tr class="${l.premissa ? 'premissa' : ''}"><td>${l.item}</td>${campo(i,'unico')}${campo(i,'vida')}${campo(i,'mensal')}${campo(i,'status')}${campo(i,'fonte')}<td class=num data-m=${i}></td></tr>`).join('');
-  document.querySelectorAll('input').forEach(e => e.oninput = () => { L[e.dataset.i][e.dataset.k] = e.value; try { localStorage.setItem(K, JSON.stringify(L)); } catch {} calcular(); });
+  document.getElementById('linhas').innerHTML = L.map((l, i) => `<tr class="${l.premissa ? 'premissa' : ''}"><td>${l.item}</td>${campo(i,'unico')}${campo(i,'vida')}${campo(i,'mensal')}${campo(i,'status')}${campo(i,'fonte')}<td><input type=checkbox data-incluir=${i} ${l.incluir ? 'checked' : ''} aria-label="Entra no total"></td><td class=num data-m=${i}></td></tr>`).join('');
+  document.querySelectorAll('[data-incluir]').forEach(e => e.onchange = () => { L[e.dataset.incluir].incluir = e.checked; try { localStorage.setItem(K, JSON.stringify(L)); } catch {} calcular(); });
+  document.querySelectorAll('input[data-k]').forEach(e => e.oninput = () => { L[e.dataset.i][e.dataset.k] = e.value; try { localStorage.setItem(K, JSON.stringify(L)); } catch {} calcular(); });
   calcular();
 }
 function calcular(){
   let total = 0, faltam = 0;
-  L.forEach((l, i) => { const m = mensal(l); document.querySelector(`[data-m="${i}"]`).textContent = m === null ? 'a cotar' : 'R$ ' + brl(m); m === null ? faltam++ : total += m; });
+  L.forEach((l, i) => { const m = mensal(l); document.querySelector(`[data-m="${i}"]`).textContent = !l.incluir ? 'fora do total' : m === null ? 'a cotar' : 'R$ ' + brl(m); if (!l.incluir) return; m === null ? faltam++ : total += m; });
   document.getElementById('total').textContent = 'R$ ' + brl(total);
   document.getElementById('parcial').textContent = faltam ? `(parcial: ${faltam} item(ns) a cotar)` : '';
 }
