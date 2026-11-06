@@ -1,84 +1,177 @@
 {
   "_meta": {
-    "versao": "0.1-esboco",
+    "versao": "0.2-esboco",
     "data": "2026-11-06",
-    "aviso": "Regras propostas para protótipo. Limiares NÃO validados clinicamente. Itens de sintomas são autorrelato inspirado em CIWA-Ar/COWS e NÃO equivalem às escalas (aplicadas por profissional).",
-    "niveis": ["verde", "amarelo", "vermelho"]
+    "aviso": "Regras propostas para protótipo. Limiares NÃO validados clinicamente. Itens de CIWA-Ar, COWS e PAWSS em autorrelato NÃO têm a validação dos instrumentos originais (aplicados por profissional): servem para triagem e precisam de confirmação clínica.",
+    "niveis": ["verde", "amarelo", "vermelho"],
+    "base": {
+      "ASSIST": "WHO ASSIST Working Group. Addiction. 2002;97(9):1183-94.",
+      "PAWSS": "Maldonado et al. Alcohol Alcohol. 2015;50(5):509-18.",
+      "CIWA-Ar": "Sullivan et al. Br J Addict. 1989;84(11):1353-7.",
+      "COWS": "Wesson & Ling. J Psychoactive Drugs. 2003;35(2):253-9.",
+      "PHQ-2": "Kroenke, Spitzer & Williams. Med Care. 2003;41(11):1284-92.",
+      "C-SSRS": "Posner et al. Am J Psychiatry. 2011;168(12):1266-77."
+    },
+    "_legenda": {
+      "fase": "nucleo = antes do resultado; complementar = depois do resultado, opcional. nucleo_se: núcleo se a condição valer, senão complementar.",
+      "se": "a pergunta só aparece se a condição valer. se_ausente=true: também aparece quando a pergunta de origem ficou sem resposta (lado seguro).",
+      "regras": "Um critério vermelho basta. Nível final = o mais grave. nivel 'info' não muda o nível.",
+      "vermelho_interrompe": "Ao surgir um critério vermelho no núcleo, a triagem para e vai direto para a tela de emergência."
+    }
   },
+
+  "grupos": {
+    "depressores": ["alcool", "calmantes", "ghb"],
+    "injetaveis": ["cocaina", "crack", "anfetaminas", "calmantes", "opioides", "ghb", "outra"],
+    "sintomas_fisicos": ["tremor", "suor", "coracao", "nausea", "diarreia", "dores", "nariz", "arrepios", "sonolencia", "febre"]
+  },
+
+  "perfil": ["q1", "q2", "q4", "q5", "q6"],
+
   "triagem": [
-    {"id":"idade","bloco":1,"texto":"Qual a sua idade?","tipo":"numero"},
-    {"id":"gestante","bloco":1,"texto":"Você está grávida ou pode estar?","tipo":"opcao","opcoes":["sim","nao","nao_se_aplica"]},
-    {"id":"substancias","bloco":2,"texto":"Quais substâncias você usou nos últimos 3 meses?","tipo":"multi","opcoes":["alcool","benzodiazepinico","ghb","opioide","cocaina_crack","anfetamina","cannabis","nicotina","outra"]},
-    {"id":"frequencia","bloco":2,"texto":"Com que frequência usava a principal?","tipo":"opcao","opcoes":["diaria","semanal","menos_que_semanal"]},
-    {"id":"ultima_dose","bloco":2,"texto":"Quando foi o último uso?","tipo":"opcao","opcoes":["menos_6h","6_24h","24_72h","3_7d","mais_7d"]},
-    {"id":"mistura","bloco":2,"texto":"Costuma misturar álcool com calmantes ou opioides?","tipo":"simnao"},
-    {"id":"conv_previa","bloco":3,"texto":"Já teve convulsão ao parar ou diminuir o uso?","tipo":"simnao","se":{"q":"substancias","inclui":["alcool","benzodiazepinico","ghb"]}},
-    {"id":"confusao_previa","bloco":3,"texto":"Já ficou confuso(a) ou viu/ouviu coisas ao parar o uso?","tipo":"simnao","se":{"q":"substancias","inclui":["alcool","benzodiazepinico","ghb"]}},
-    {"id":"tremor","bloco":4,"texto":"Tremor agora","tipo":"escala03"},
-    {"id":"sudorese","bloco":4,"texto":"Suor agora","tipo":"escala03"},
-    {"id":"nausea","bloco":4,"texto":"Enjoo ou vômito agora","tipo":"escala03"},
-    {"id":"ansiedade","bloco":4,"texto":"Ansiedade ou inquietação agora","tipo":"escala03"},
-    {"id":"alucinacao","bloco":4,"texto":"Está vendo, ouvindo ou sentindo coisas que outras pessoas não percebem?","tipo":"simnao"},
-    {"id":"confusao_agora","bloco":4,"texto":"Está difícil saber onde está, que dia é ou pensar com clareza?","tipo":"simnao"},
-    {"id":"convulsao_24h","bloco":4,"texto":"Teve convulsão nas últimas 24 horas?","tipo":"simnao"},
-    {"id":"febre","bloco":4,"texto":"Está com febre?","tipo":"simnao"},
-    {"id":"craving","bloco":4,"texto":"Vontade de usar agora (0 = nenhuma, 10 = máxima)","tipo":"escala010"},
-    {"id":"insonia","bloco":4,"texto":"Em quantas das últimas noites dormiu muito mal?","tipo":"opcao","opcoes":["0","1_2","3_ou_mais"]},
-    {"id":"epilepsia","bloco":5,"texto":"Tem epilepsia?","tipo":"simnao","se":{"q":"substancias","inclui":["alcool","benzodiazepinico","ghb"]}},
-    {"id":"hepatopatia","bloco":5,"texto":"Tem doença no fígado (ex.: cirrose)?","tipo":"simnao","se":{"q":"substancias","inclui":["alcool","benzodiazepinico","ghb"]}},
-    {"id":"phq_a","bloco":6,"texto":"Últimas 2 semanas: pouco interesse ou prazer nas coisas (0 nunca – 3 quase todo dia)","tipo":"escala03"},
-    {"id":"phq_b","bloco":6,"texto":"Últimas 2 semanas: sentiu-se para baixo ou sem esperança (0–3)","tipo":"escala03"},
-    {"id":"cssrs1","bloco":6,"texto":"No último mês, desejou estar morto(a) ou dormir e não acordar?","tipo":"simnao"},
-    {"id":"cssrs2","bloco":6,"texto":"No último mês, teve pensamentos de se matar?","tipo":"simnao"},
-    {"id":"cssrs4","bloco":6,"texto":"Teve alguma intenção de agir sobre esses pensamentos?","tipo":"simnao","se":{"q":"cssrs2","eq":"sim"},"_mapa":"pergunta 30"},
-    {"id":"cssrs5","bloco":6,"texto":"Começou a planejar ou decidiu como faria?","tipo":"simnao","se":{"q":"cssrs2","eq":"sim"},"_mapa":"pergunta 31"},
-    {"id":"cssrs6","bloco":6,"texto":"Nos últimos 3 meses, fez algo para tirar a própria vida ou se preparou para isso?","tipo":"simnao","_mapa":"pergunta 32"},
-    {"id":"acompanhamento","bloco":7,"texto":"Você é acompanhado(a) por algum serviço?","tipo":"opcao","opcoes":["caps","ubs","outro","nenhum"]},
-    {"id":"sozinho","bloco":7,"texto":"Tem alguém com você nos próximos dias?","tipo":"simnao"}
+    {"id":"q1","bloco":1,"fase":"nucleo","texto":"Qual a sua idade?","tipo":"opcao","opcoes":[
+      {"v":"menos_18","l":"Menos de 18 anos"},{"v":"18_29","l":"18 a 29"},{"v":"30_44","l":"30 a 44"},{"v":"45_59","l":"45 a 59"},{"v":"60_mais","l":"60 ou mais"}]},
+    {"id":"q2","bloco":1,"fase":"nucleo","texto":"Sexo biológico:","tipo":"opcao","opcoes":[
+      {"v":"feminino","l":"Feminino"},{"v":"masculino","l":"Masculino"}]},
+    {"id":"q3","bloco":1,"fase":"nucleo","texto":"Existe chance de você estar grávida?","tipo":"opcao","se":{"q":"q2","eq":"feminino"},"opcoes":[
+      {"v":"sim","l":"Sim"},{"v":"nao","l":"Não"},{"v":"nao_sei","l":"Não sei"}]},
+    {"id":"q4","bloco":1,"fase":"complementar","texto":"Qual o seu CEP ou bairro? (serve para localizar o CAPS AD ou a UBS mais próxima)","tipo":"regiao",
+      "ajuda":"Só os 5 primeiros números do CEP ou o nome do bairro. Nunca pedimos sua localização exata."},
+    {"id":"q5","bloco":1,"fase":"complementar","texto":"Você mora com alguém?","tipo":"opcao","opcoes":[
+      {"v":"sozinho","l":"Sozinho(a)"},{"v":"familia","l":"Com família ou companheiro(a)"},{"v":"amigos","l":"Com amigos"},{"v":"rua","l":"Em situação de rua"},{"v":"abrigo","l":"Em abrigo ou casa de acolhimento"}]},
+    {"id":"q6","bloco":1,"fase":"nucleo","texto":"Tem alguém de confiança que possamos acionar numa emergência?","tipo":"contato"},
+
+    {"id":"q7","bloco":2,"fase":"nucleo","texto":"Quais substâncias você usou nos últimos 3 meses? (pode marcar mais de uma)","tipo":"multi","opcoes":[
+      {"v":"alcool","l":"Álcool"},{"v":"tabaco","l":"Tabaco / cigarro eletrônico"},{"v":"maconha","l":"Maconha"},{"v":"cocaina","l":"Cocaína em pó"},{"v":"crack","l":"Crack"},
+      {"v":"anfetaminas","l":"Anfetaminas / metanfetamina / \"bala\" / ecstasy"},
+      {"v":"calmantes","l":"Calmantes ou remédios para dormir sem receita (ex.: clonazepam, diazepam, alprazolam, zolpidem)"},
+      {"v":"opioides","l":"Opioides (morfina, tramadol, codeína, oxicodona, fentanil, heroína)"},
+      {"v":"ghb","l":"GHB / \"G\""},{"v":"inalantes","l":"Inalantes (loló, lança-perfume, solventes)"},{"v":"outra","l":"Outra"}]},
+    {"id":"q8","bloco":2,"fase":"complementar","texto":"Qual delas é a que mais te preocupa hoje?","tipo":"opcao","opcoes_de":"q7","se":{"q":"q7","conta":["alcool","tabaco","maconha","cocaina","crack","anfetaminas","calmantes","opioides","ghb","inalantes","outra"],"gte":2},
+      "_nota":"Se só uma substância foi marcada na q7, a q8 é preenchida automaticamente com ela."},
+    {"id":"q9","bloco":2,"nucleo_se":{"q":"q7","inclui":["alcool","calmantes","ghb"],"se_ausente":true},"texto":"Com que frequência você usa essa substância principal?","tipo":"opcao","opcoes":[
+      {"v":"varias_dia","l":"Todos os dias, várias vezes ao dia"},{"v":"diario","l":"Todos os dias"},{"v":"3_6sem","l":"3 a 6 vezes por semana"},{"v":"1_2sem","l":"1 a 2 vezes por semana"},{"v":"menos","l":"Menos que isso"}]},
+    {"id":"q10","bloco":2,"fase":"complementar","texto":"Há quanto tempo você usa nesse padrão?","tipo":"opcao","opcoes":[
+      {"v":"menos_1m","l":"Menos de 1 mês"},{"v":"1_6m","l":"1 a 6 meses"},{"v":"6m_2a","l":"6 meses a 2 anos"},{"v":"mais_2a","l":"Mais de 2 anos"}]},
+    {"id":"q11","bloco":2,"fase":"nucleo","texto":"Num dia típico, quanto você bebe?","ajuda":"1 dose = 1 lata de cerveja, 1 taça de vinho ou 1 dose de destilado.","tipo":"opcao","se":{"q":"q7","inclui":["alcool"]},"opcoes":[
+      {"v":"ate_2","l":"Até 2 doses"},{"v":"3_5","l":"3 a 5 doses"},{"v":"6_10","l":"6 a 10 doses"},{"v":"mais_10","l":"Mais de 10 doses"}]},
+    {"id":"q12","bloco":2,"fase":"nucleo","texto":"Quando foi a última vez que você usou?","tipo":"opcao","opcoes":[
+      {"v":"menos_6h","l":"Hoje, há menos de 6 horas"},{"v":"6_24h","l":"Entre 6 e 24 horas"},{"v":"1_3d","l":"Entre 1 e 3 dias"},{"v":"4_7d","l":"Entre 4 e 7 dias"},{"v":"mais_1sem","l":"Mais de 1 semana"}]},
+    {"id":"q13","bloco":2,"nucleo_se":{"q":"q7","inclui":["cocaina","crack","anfetaminas","calmantes","opioides","ghb","outra"],"se_ausente":true},"texto":"Como você usa? (pode marcar mais de uma)","tipo":"multi","opcoes":[
+      {"v":"bebe","l":"Bebe"},{"v":"fuma","l":"Fuma"},{"v":"cheira","l":"Cheira"},{"v":"injeta","l":"Injeta"},{"v":"engole","l":"Engole comprimido"}]},
+    {"id":"q14","bloco":2,"fase":"nucleo","texto":"Você costuma misturar álcool com calmantes, remédios para dormir ou opioides?","tipo":"simnao","se":{"q":"q7","inclui":["alcool","calmantes","ghb","opioides"],"se_ausente":true}},
+
+    {"id":"q15","bloco":3,"fase":"complementar","texto":"Você já ficou internado(a) para parar de usar ou para \"desintoxicar\"?","tipo":"simnao"},
+    {"id":"q16","bloco":3,"fase":"nucleo","texto":"Já teve convulsão ou \"ataque\" ao ficar sem a substância?","tipo":"simnao"},
+    {"id":"q17","bloco":3,"fase":"nucleo","texto":"Já ficou confuso(a), sem saber onde estava, ou viu e ouviu coisas que não existiam ao ficar sem a substância?","tipo":"simnao"},
+    {"id":"q18","bloco":3,"fase":"complementar","texto":"Já teve apagões, ou seja, esqueceu o que aconteceu enquanto bebia ou usava?","tipo":"simnao"},
+    {"id":"q19","bloco":3,"fase":"complementar","texto":"Já tentou parar antes e teve sintomas fortes?","tipo":"opcao","opcoes":[
+      {"v":"sim","l":"Sim"},{"v":"nao","l":"Não"},{"v":"nunca","l":"Nunca tentei"}]},
+
+    {"id":"q20","bloco":4,"fase":"nucleo","texto":"Neste momento você está com (marque todos):","tipo":"multi","exclusivo":"nenhum","opcoes":[
+      {"v":"tremor","l":"Tremor nas mãos"},{"v":"suor","l":"Suor excessivo"},{"v":"coracao","l":"Coração acelerado"},{"v":"nausea","l":"Náusea ou vômito"},
+      {"v":"diarreia","l":"Diarreia ou cólica"},{"v":"dores","l":"Dores no corpo"},{"v":"nariz","l":"Nariz escorrendo, olhos lacrimejando, bocejos"},{"v":"arrepios","l":"Arrepios"},
+      {"v":"ansiedade","l":"Ansiedade ou agitação forte"},{"v":"sonolencia","l":"Muita sonolência e cansaço"},{"v":"tristeza","l":"Tristeza profunda"},{"v":"febre","l":"Febre"},
+      {"v":"alucinacao","l":"Vendo, ouvindo ou sentindo coisas estranhas"},{"v":"confusao","l":"Confusão, dificuldade de saber onde está ou que dia é"},
+      {"v":"convulsao_hoje","l":"Convulsão (ataque) hoje"},{"v":"respiracao","l":"Respiração muito lenta/difícil ou não consigo acordar direito"},
+      {"v":"nenhum","l":"Nenhum"}]},
+    {"id":"q21","bloco":4,"fase":"nucleo","texto":"Como foi o seu sono nas últimas 3 noites?","tipo":"opcao","opcoes":[
+      {"v":"normal","l":"Normal"},{"v":"pouco","l":"Dormi pouco"},{"v":"quase_nao","l":"Quase não dormi"},{"v":"demais","l":"Dormi demais"}]},
+    {"id":"q22","bloco":4,"fase":"nucleo","texto":"De 0 a 10, qual a sua vontade de usar agora? (0 = nenhuma, 10 = incontrolável)","tipo":"escala010"},
+
+    {"id":"q23","bloco":5,"nucleo_se":{"q":"q7","inclui":["alcool","calmantes","ghb"],"se_ausente":true},"texto":"Você tem algum destes problemas de saúde? (pode marcar mais de uma)","tipo":"multi","exclusivo":"nenhum","opcoes":[
+      {"v":"epilepsia","l":"Epilepsia"},{"v":"coracao","l":"Doença do coração ou pressão alta"},{"v":"figado","l":"Doença do fígado"},{"v":"diabetes","l":"Diabetes"},
+      {"v":"hiv_hepatite","l":"HIV ou hepatite"},{"v":"outra","l":"Outra"},{"v":"nenhum","l":"Nenhum"}]},
+    {"id":"q24","bloco":5,"fase":"complementar","texto":"Usa algum remédio regularmente? Qual?","ajuda":"Marque o tipo. Não precisa escrever o nome.","tipo":"multi","exclusivo":"nenhum","opcoes":[
+      {"v":"metadona","l":"Metadona"},{"v":"buprenorfina","l":"Buprenorfina"},{"v":"benzodiazepinico","l":"Calmante com receita (benzodiazepínico)"},
+      {"v":"antidepressivo","l":"Antidepressivo"},{"v":"anticonvulsivante","l":"Anticonvulsivante"},{"v":"antipsicotico","l":"Antipsicótico"},
+      {"v":"coracao_pressao","l":"Remédio para coração ou pressão"},{"v":"diabetes","l":"Remédio para diabetes"},{"v":"outro","l":"Outro"},{"v":"nenhum","l":"Nenhum"}]},
+    {"id":"q25","bloco":5,"fase":"complementar","texto":"Você ou alguém próximo tem naloxona em casa?","tipo":"opcao","se":{"q":"q7","inclui":["opioides"]},"opcoes":[
+      {"v":"sim","l":"Sim"},{"v":"nao","l":"Não"},{"v":"nao_sei","l":"Não sei o que é"}]},
+
+    {"id":"q26","bloco":6,"fase":"nucleo","texto":"Nas últimas 2 semanas, com que frequência você teve pouco interesse ou prazer em fazer as coisas?","tipo":"opcao","opcoes":[
+      {"v":0,"l":"Nenhuma vez"},{"v":1,"l":"Vários dias"},{"v":2,"l":"Mais da metade dos dias"},{"v":3,"l":"Quase todos os dias"}]},
+    {"id":"q27","bloco":6,"fase":"nucleo","texto":"Nas últimas 2 semanas, com que frequência você se sentiu para baixo, deprimido(a) ou sem esperança?","tipo":"opcao","opcoes":[
+      {"v":0,"l":"Nenhuma vez"},{"v":1,"l":"Vários dias"},{"v":2,"l":"Mais da metade dos dias"},{"v":3,"l":"Quase todos os dias"}]},
+    {"id":"q28","bloco":6,"fase":"nucleo","texto":"No último mês, você desejou estar morto(a) ou dormir e não acordar mais?","tipo":"simnao"},
+    {"id":"q29","bloco":6,"fase":"nucleo","texto":"No último mês, você teve pensamentos de se matar?","tipo":"simnao"},
+    {"id":"q30","bloco":6,"fase":"nucleo","texto":"Você pensou em como faria isso?","tipo":"simnao","se":{"q":"q29","eq":"sim"}},
+    {"id":"q31","bloco":6,"fase":"nucleo","texto":"Você teve intenção de agir sobre esses pensamentos?","tipo":"simnao","se":{"q":"q29","eq":"sim"}},
+    {"id":"q32","bloco":6,"fase":"nucleo","texto":"Nos últimos 3 meses, você fez alguma coisa ou se preparou para tirar a própria vida?","tipo":"simnao"},
+
+    {"id":"q33","bloco":7,"fase":"complementar","texto":"Você é acompanhado(a) em algum serviço hoje?","tipo":"multi","exclusivo":"nenhum","opcoes":[
+      {"v":"caps_ad","l":"CAPS AD"},{"v":"ubs","l":"UBS / postinho"},{"v":"particular","l":"Psiquiatra ou psicólogo particular"},{"v":"grupo","l":"Grupo de apoio (AA, NA etc.)"},
+      {"v":"ong","l":"ONG ou comunidade"},{"v":"nenhum","l":"Nenhum"}]},
+    {"id":"q34","bloco":7,"fase":"complementar","texto":"O que você quer neste momento?","tipo":"opcao","opcoes":[
+      {"v":"parar","l":"Parar completamente"},{"v":"diminuir","l":"Diminuir o uso"},{"v":"pensar","l":"Ainda não sei, quero ajuda para pensar"}]},
+    {"id":"q35","bloco":7,"fase":"complementar","texto":"Você já parou de usar e está tentando se manter sem a substância?","tipo":"opcao","opcoes":[
+      {"v":"sim","l":"Sim"},{"v":"nao","l":"Não, ainda estou usando"}]},
+    {"id":"q35_dias","bloco":7,"fase":"complementar","texto":"Há quantos dias?","tipo":"numero","max":3650,"se":{"q":"q35","eq":"sim"}}
   ],
+
   "escores": {
-    "sintomas": ["tremor","sudorese","nausea","ansiedade"],
-    "phq2": ["phq_a","phq_b"]
+    "phq2": ["q26", "q27"]
   },
-  "regras": [
-    {"nivel":"vermelho","motivo":"Pensamentos de suicídio com intenção, plano ou comportamento recente (C-SSRS).","quando":{"algum":[{"q":"cssrs4","eq":"sim"},{"q":"cssrs5","eq":"sim"},{"q":"cssrs6","eq":"sim"}]}},
-    {"nivel":"vermelho","motivo":"Confusão ou alucinação agora (possível delirium).","quando":{"algum":[{"q":"confusao_agora","eq":"sim"},{"q":"alucinacao","eq":"sim"}]}},
-    {"nivel":"vermelho","motivo":"Convulsão nas últimas 24 h.","quando":{"q":"convulsao_24h","eq":"sim"}},
-    {"nivel":"vermelho","motivo":"Febre com tremor intenso.","quando":{"todos":[{"q":"febre","eq":"sim"},{"q":"tremor","gte":2}]}},
-    {"nivel":"amarelo","motivo":"Desintoxicação domiciliar não indicada: convulsão ou confusão prévias na abstinência.","quando":{"algum":[{"q":"conv_previa","eq":"sim"},{"q":"confusao_previa","eq":"sim"}]}},
-    {"nivel":"amarelo","motivo":"Desintoxicação domiciliar não indicada: mistura de álcool com calmantes/opioides.","quando":{"q":"mistura","eq":"sim"}},
-    {"nivel":"amarelo","motivo":"Desintoxicação domiciliar não indicada: uso de depressor com epilepsia ou doença hepática.","quando":{"algum":[{"q":"epilepsia","eq":"sim"},{"q":"hepatopatia","eq":"sim"}]}},
-    {"nivel":"amarelo","motivo":"Desintoxicação domiciliar não indicada: gestação.","quando":{"q":"gestante","eq":"sim"}},
-    {"nivel":"amarelo","motivo":"Uso diário de álcool, calmantes ou GHB com último uso há menos de 72 h (janela de maior risco).","quando":{"todos":[{"q":"substancias","inclui":["alcool","benzodiazepinico","ghb"]},{"q":"frequencia","eq":"diaria"},{"q":"ultima_dose","em":["menos_6h","6_24h","24_72h"]}]}},
-    {"nivel":"amarelo","motivo":"Sintomas físicos moderados (autorrelato ≥ 6 de 12).","quando":{"escore":"sintomas","gte":6}},
-    {"nivel":"amarelo","motivo":"Vontade de usar alta (≥ 7).","quando":{"q":"craving","gte":7}},
-    {"nivel":"amarelo","motivo":"Insônia em 3 ou mais noites.","quando":{"q":"insonia","eq":"3_ou_mais"}},
-    {"nivel":"amarelo","motivo":"Ideação passiva ou pensamentos de suicídio sem plano (C-SSRS 1–2).","quando":{"algum":[{"q":"cssrs1","eq":"sim"},{"q":"cssrs2","eq":"sim"}]}},
-    {"nivel":"amarelo","motivo":"Rastreio de depressão positivo (PHQ-2 ≥ 3).","quando":{"escore":"phq2","gte":3}},
-    {"nivel":"amarelo","motivo":"Idade menor de 18 anos: fluxo com responsável (ECA).","quando":{"q":"idade","lt":18}}
+
+  "obrigatorias_para_verde": [
+    {"q":"q7"}, {"q":"q12"}, {"q":"q20"}, {"q":"q22"}, {"q":"q28"}, {"q":"q29"},
+    {"q":"q30","se":{"q":"q29","eq":"sim"}}, {"q":"q31","se":{"q":"q29","eq":"sim"}}, {"q":"q32"}
   ],
-  "obrigatorias_para_verde": ["substancias","ultima_dose","tremor","sudorese","nausea","ansiedade","alucinacao","confusao_agora","convulsao_24h","febre","craving","cssrs1","cssrs2","cssrs6"],
+
+  "regras": [
+    {"nivel":"vermelho","tag":"suicidio","motivo":"Você contou que pensou em como tiraria a própria vida.","quando":{"q":"q30","eq":"sim"}},
+    {"nivel":"vermelho","tag":"suicidio","motivo":"Você contou que teve intenção de agir sobre os pensamentos de se matar.","quando":{"q":"q31","eq":"sim"}},
+    {"nivel":"vermelho","tag":"suicidio","motivo":"Você contou que fez algo ou se preparou para tirar a própria vida nos últimos 3 meses.","quando":{"q":"q32","eq":"sim"}},
+    {"nivel":"vermelho","motivo":"Confusão ou visões/vozes agora: pode ser uma complicação grave da abstinência.","quando":{"q":"q20","inclui":["confusao","alucinacao"]}},
+    {"nivel":"vermelho","motivo":"Convulsão hoje.","quando":{"q":"q20","inclui":["convulsao_hoje"]}},
+    {"nivel":"vermelho","motivo":"Respiração lenta ou difícil, ou dificuldade para acordar: pode ser intoxicação grave.","quando":{"q":"q20","inclui":["respiracao"]}},
+    {"nivel":"vermelho","motivo":"Febre junto com tremor, suor ou coração acelerado.","quando":{"todos":[{"q":"q20","inclui":["febre"]},{"q":"q20","inclui":["tremor","suor","coracao"]}]}},
+
+    {"nivel":"amarelo","motivo":"Menos de 18 anos: o atendimento precisa incluir um responsável (ECA).","orientacao":"Procure o CAPS AD ou a UBS com um adulto responsável. O Conselho Tutelar também pode ajudar.","quando":{"q":"q1","eq":"menos_18"}},
+    {"nivel":"amarelo","tag":"fisico","motivo":"Possível gravidez: parar o uso em casa sem acompanhamento não é indicado.","orientacao":"Procure avaliação presencial antes de parar ou reduzir o uso.","quando":{"q":"q3","em":["sim","nao_sei"]}},
+    {"nivel":"amarelo","tag":"fisico","motivo":"Mistura de álcool com calmantes ou opioides: parar em casa sem acompanhamento não é indicado.","quando":{"q":"q14","eq":"sim"}},
+    {"nivel":"amarelo","tag":"fisico","motivo":"Já teve convulsão ou confusão ao ficar sem a substância: parar em casa sem acompanhamento não é indicado.","quando":{"algum":[{"q":"q16","eq":"sim"},{"q":"q17","eq":"sim"}]}},
+    {"nivel":"amarelo","tag":"fisico","motivo":"Uso pesado de álcool, calmantes ou GHB com epilepsia ou doença do fígado: parar em casa sem acompanhamento não é indicado.","quando":{"todos":[
+      {"q":"q7","inclui":["alcool","calmantes","ghb"]},
+      {"algum":[{"q":"q9","em":["varias_dia","diario"]},{"q":"q11","em":["6_10","mais_10"]}]},
+      {"q":"q23","inclui":["epilepsia","figado"]}]}},
+    {"nivel":"amarelo","tag":"fisico","motivo":"Uso diário de álcool, calmantes ou GHB com último uso há menos de 3 dias: é o período de maior risco da abstinência.","quando":{"todos":[
+      {"q":"q7","inclui":["alcool","calmantes","ghb"]},{"q":"q9","em":["varias_dia","diario"]},{"q":"q12","em":["menos_6h","6_24h","1_3d"]}]}},
+    {"nivel":"amarelo","tag":"suicidio","motivo":"Você contou que desejou estar morto(a) ou não acordar no último mês.","quando":{"q":"q28","eq":"sim"}},
+    {"nivel":"amarelo","tag":"suicidio","motivo":"Você contou que teve pensamentos de se matar no último mês.","quando":{"q":"q29","eq":"sim"},"_nota":"Não estava na lista de amarelos; incluído por segurança (C-SSRS item 2)."},
+    {"nivel":"amarelo","tag":"rebote","motivo":"Sinais de tristeza ou desânimo frequentes nas últimas 2 semanas (PHQ-2 ≥ 3).","quando":{"escore":"phq2","gte":3}},
+    {"nivel":"amarelo","tag":"agitacao","motivo":"Vontade de usar muito alta agora (7 ou mais).","quando":{"q":"q22","gte":7}},
+    {"nivel":"amarelo","tag":"agitacao","motivo":"Quase não dormiu nas últimas 3 noites.","quando":{"q":"q21","eq":"quase_nao"}},
+    {"nivel":"amarelo","tag":"fisico","motivo":"Vários sintomas no corpo ao mesmo tempo (3 ou mais).","quando":{"q":"q20","conta_grupo":"sintomas_fisicos","gte":3}},
+    {"nivel":"amarelo","tag":"fisico","motivo":"Febre.","quando":{"q":"q20","inclui":["febre"]}},
+    {"nivel":"amarelo","motivo":"Uso injetável.","orientacao":"Use sempre material novo e só seu (seringa, agulha, água, recipiente). Evite usar sozinho(a). O CAPS AD e os programas de redução de danos oferecem material e testagem de HIV e hepatites.","quando":{"q":"q13","inclui":["injeta"]}},
+
+    {"nivel":"info","motivo":"Naloxona","orientacao":"A naloxona reverte a overdose de opioides. Pergunte no CAPS AD ou na UBS como conseguir e mostre a alguém próximo como usar.","quando":{"todos":[{"q":"q7","inclui":["opioides"]},{"q":"q25","em":["nao","nao_sei"]}]}},
+    {"nivel":"info","motivo":"Perda de tolerância","orientacao":"Depois de alguns dias sem usar, o corpo tolera menos. Se voltar a usar, uma quantidade que antes era comum pode causar overdose. Não use sozinho(a).","quando":{"todos":[{"q":"q7","inclui":["opioides"]},{"algum":[{"q":"q35_dias","gte":3},{"q":"q12","em":["4_7d","mais_1sem"]}]}]}}
+  ],
+
   "sensor": {
     "amostras_linha_base": 10,
     "desvios_para_disparo": 2,
     "amostras_persistencia": 3,
-    "_nota": "Disparo por desvio da linha de base individual (z-score de FC ou movimento). Limiares não validados."
+    "intervalo_min_ema_leituras": 40,
+    "dp_minimo": {"fc": 3, "mov": 0.3},
+    "_nota": "Disparo por desvio da linha de base individual (z-score de FC ou movimento), em QUALQUER direção. Limiares não validados."
   },
+
   "ema": [
-    {"id":"confusao_agora","texto":"Está difícil pensar com clareza, ou está vendo/ouvindo coisas que outros não percebem?","tipo":"simnao"},
-    {"id":"tremor","texto":"Tremor agora","tipo":"escala03"},
-    {"id":"sudorese","texto":"Suor agora","tipo":"escala03"},
-    {"id":"craving","texto":"Vontade de usar agora (0–10)","tipo":"escala010"},
-    {"id":"uso_recente","texto":"Usou alguma substância nas últimas horas?","tipo":"simnao"},
-    {"id":"sonolencia","texto":"Está muito sonolento(a) ou com respiração lenta/difícil?","tipo":"simnao","se":{"q":"uso_recente","eq":"sim"}},
-    {"id":"se_ferir","texto":"Está pensando em se ferir agora?","tipo":"simnao"}
+    {"id":"q20","texto":"Neste momento você está com (marque todos):","tipo":"multi","exclusivo":"nenhum","opcoes":[
+      {"v":"tremor","l":"Tremor nas mãos"},{"v":"suor","l":"Suor excessivo"},{"v":"coracao","l":"Coração acelerado"},{"v":"ansiedade","l":"Ansiedade ou agitação forte"},
+      {"v":"alucinacao","l":"Vendo, ouvindo ou sentindo coisas estranhas"},{"v":"confusao","l":"Confusão, dificuldade de saber onde está ou que dia é"},
+      {"v":"respiracao","l":"Respiração muito lenta/difícil ou não consigo acordar direito"},{"v":"nenhum","l":"Nenhum"}]},
+    {"id":"q22","texto":"De 0 a 10, qual a sua vontade de usar agora? (0 = nenhuma, 10 = incontrolável)","tipo":"escala010"},
+    {"id":"e_uso","texto":"Usou alguma substância desde a última vez que respondeu?","tipo":"simnao"},
+    {"id":"e_ferir","texto":"Agora, está pensando em se ferir ou em tirar a própria vida?","tipo":"simnao"}
   ],
+  "_ema_nota": "A EMA reusa os mesmos itens (q20 resumida, q22) e as mesmas escalas da triagem. Na reclassificação valem as regras da triagem + regras_ema; o nível só sobe.",
+
   "regras_ema": [
-    {"nivel":"vermelho","motivo":"Pensamento de se ferir agora.","quando":{"q":"se_ferir","eq":"sim"}},
-    {"nivel":"vermelho","motivo":"Possível delirium (confusão ou alucinação).","quando":{"q":"confusao_agora","eq":"sim"}},
-    {"nivel":"vermelho","motivo":"Suspeita de overdose: uso recente com sonolência ou respiração difícil.","quando":{"q":"sonolencia","eq":"sim"}},
-    {"nivel":"amarelo","motivo":"Uso após período sem uso: tolerância menor e risco de overdose maior.","quando":{"q":"uso_recente","eq":"sim"}},
-    {"nivel":"amarelo","motivo":"Tremor e suor intensos.","quando":{"todos":[{"q":"tremor","gte":2},{"q":"sudorese","gte":2}]}},
-    {"nivel":"amarelo","motivo":"Vontade de usar alta (≥ 7).","quando":{"q":"craving","gte":7}}
+    {"nivel":"vermelho","tag":"suicidio","motivo":"Você contou que está pensando em se ferir ou tirar a própria vida agora.","quando":{"q":"e_ferir","eq":"sim"}},
+    {"nivel":"amarelo","motivo":"Uso depois de um período sem usar: o corpo tolera menos e o risco de overdose é maior.","quando":{"todos":[{"q":"e_uso","eq":"sim"},{"algum":[{"q":"q35","eq":"sim"},{"q":"q12","em":["4_7d","mais_1sem"]}]}]}}
   ]
 }

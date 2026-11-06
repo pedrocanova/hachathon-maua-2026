@@ -1,35 +1,59 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Pulso — triagem de apoio</title>
 <style>
-:root{--bg:#F8F9FA;--pri:#4A90E2;--tx:#1f2933;--card:#fff;--btx:#fff}
+/* Temas do Guia de Psicologia das Cores. O paciente nunca vê vermelho/amarelo vibrantes; sem branco puro. */
+:root{--bg:#F8F9FA;--pri:#4A90E2;--tx:#1f2933;--card:#FDFDFD;--btx:#fff}
 body[data-tema=taquicardia]{--bg:#EBF2F7;--pri:#2B5B84;--card:#F0F4F8}
 body[data-tema=agitacao]{--bg:#F0F7F4;--pri:#6B9080;--card:#F6FFF8}
 body[data-tema=noite]{--bg:#1E1B2E;--pri:#9D8DF1;--tx:#E2C2B9;--card:#2D2A4A;--btx:#1E1B2E}
-body[data-tema=crise]{--bg:#006D77;--pri:#EDF6F9;--tx:#EDF6F9;--card:#04565e;--btx:#006D77}
-body[data-tema=poscrise]{--bg:#FBF3E4;--pri:#E07A5F;--card:#F2CC8F55}
+body[data-tema=crise]{--bg:#006D77;--pri:#EDF6F9;--tx:#EDF6F9;--card:#04565e;--btx:#00434a}
+body[data-tema=poscrise]{--bg:#FBF3E4;--pri:#B5573F;--card:#F7E6C4}
 *{box-sizing:border-box}
-body{margin:0;font:17px/1.45 system-ui,sans-serif;background:var(--bg);color:var(--tx);transition:background 2s,color 2s}
+body{margin:0;font:18px/1.45 system-ui,sans-serif;background:var(--bg);color:var(--tx);transition:background 2s,color 2s;padding-bottom:calc(120px + env(safe-area-inset-bottom,0px))}
 main{max-width:560px;margin:auto;padding:16px}
-.card{background:var(--card);border-radius:14px;padding:16px;margin:12px 0}
-button{font:inherit;border:0;border-radius:10px;padding:12px 16px;margin:4px 4px 4px 0;background:var(--pri);color:var(--btx);cursor:pointer}
-button.sec{background:transparent;color:var(--tx);border:1px solid currentColor}
-button.big{display:block;width:100%;font-size:20px;padding:16px}
-input[type=number]{font:inherit;padding:10px;width:8em}
-small,.aviso{opacity:.8;font-size:14px}
-.opc button{min-width:56px}
-.bar{height:6px;background:#0002;border-radius:3px}.bar i{display:block;height:100%;background:var(--pri);border-radius:3px}
+h1{font-size:1.5em;line-height:1.2}
+h2{font-size:1.15em;margin-top:0}
+.card{display:block;background:var(--card);border-radius:14px;padding:16px;margin:12px 0}
+button,.btn{display:inline-block;font:inherit;border:0;border-radius:12px;padding:14px 18px;margin:4px 4px 4px 0;background:var(--pri);color:var(--btx);cursor:pointer;text-decoration:none;text-align:center}
+button.sec,.btn.sec{background:transparent;color:var(--tx);border:1px solid currentColor}
+.big{display:block;width:100%;font-size:1.1em;padding:16px;margin:8px 0}
+.opc{display:flex;flex-direction:column;gap:8px}
+.opc .op{display:block;width:100%;margin:0;text-align:left;padding:16px;min-height:56px;background:transparent;color:var(--tx);border:2px solid var(--pri)}
+.opc .op[aria-pressed=true]{background:var(--pri);color:var(--btx)}
+.opc .op:hover{outline:2px solid var(--pri)}
+.opc.grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr))}
+.opc.grade .op{text-align:center;padding:14px 0}
+label{display:block;margin:8px 0}
+label input:not([type=checkbox]),input[type=number]{display:block;width:100%;font:inherit;padding:12px;margin:4px 0 8px;border-radius:10px;border:1px solid #8889}
+.check{display:flex;gap:12px;align-items:flex-start}.check input{width:24px;height:24px;flex:none;margin-top:2px}
+small,.aviso{opacity:.85;font-size:15px}
+.bar{height:8px;background:#0002;border-radius:4px}.bar i{display:block;height:100%;background:var(--pri);border-radius:4px;transition:width .3s}
 #resp{width:160px;height:160px;border-radius:50%;margin:24px auto;background:radial-gradient(#6B9080,#2B5B84);animation:resp 10s ease-in-out infinite}
 @keyframes resp{0%{transform:scale(.6)}40%{transform:scale(1)}100%{transform:scale(.6)}}
+@media (prefers-reduced-motion:reduce){#resp{animation-duration:20s}}
 canvas{width:100%;height:120px;background:var(--card);border-radius:10px}
-.log{font:13px monospace;max-height:220px;overflow:auto;background:#fff;color:#222;padding:8px;border-radius:8px}
-.chip{padding:1px 6px;border-radius:6px;color:#fff}.chip.vermelho{background:#C62828}.chip.amarelo{background:#EF6C00}.chip.verde{background:#2E7D32}
+#monbar{position:fixed;left:0;right:0;bottom:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--card);border-top:2px solid var(--pri);display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;z-index:9}
+#monst{font-weight:600}
+#parconf{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+footer{max-width:560px;margin:auto;padding:0 16px 16px}
+footer button{font-size:15px;padding:8px 12px}
+/* painel do profissional: aqui sim vermelho/laranja para priorização */
+.log{font:13px monospace;max-height:240px;overflow:auto;background:#FDFDFD;color:#222;padding:8px;border-radius:8px}
+.chip{padding:2px 8px;border-radius:6px;color:#fff;font-size:14px}.chip.vermelho{background:#C62828}.chip.amarelo{background:#EF6C00}.chip.verde{background:#2E7D32}
+[hidden]{display:none!important}
 </style>
 </head>
 <body data-tema="normal">
 <main id="app">Carregando…</main>
+<footer><button class="sec" id="apagar">Apagar meus dados</button></footer>
+<div id="monbar" role="status" hidden>
+  <span id="monst">Monitorando…</span>
+  <button id="parar">Parar</button>
+  <span id="parconf" hidden>Parar o monitoramento? <button id="parSim">Sim, parar</button><button class="sec" id="parNao">Continuar</button></span>
+</div>
 <script src="app.js"></script>
 </body>
 </html>
