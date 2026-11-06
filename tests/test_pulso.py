@@ -728,3 +728,33 @@ def test_tabela_de_custos_calcula_total(page):
 def test_contagem(page, resp, esperado):
     iniciar(page)
     assert len(responder(page, resp)) == esperado
+
+
+# ---------- check-in agendado: intervalos maiores, nunca no sono; mais rigoroso só pelo profissional ----------
+def test_checkin_agendado_nao_acorda_o_paciente(page):
+    iniciar(page, NOITE); responder(page, ALCOOL)
+    monitorar(page)
+    assert page.locator("#hud").get_attribute("data-checkin") == "480"            # intensivo: 3x/dia (antes: a cada 1 h)
+    page.evaluate("S.pul.ultimaEma -= 600 * 60000")                               # check-in vencido às 23h
+    page.wait_for_timeout(2500)
+    expect(page.locator("#ema")).to_be_hidden()
+    aba(page, "inicio"); expect(page.locator("#prox")).to_contain_text("depois do seu horário de sono")
+    expect(page.locator("#perfil")).to_contain_text("nunca no seu horário de sono")
+
+
+def test_profissional_define_intervalo_e_madrugada(page):
+    iniciar(page, NOITE); responder(page, ALCOOL)
+    demo(page); page.click("#painel")
+    page.select_option("#profintervalo", "60"); page.check("#profnoite"); page.click("#profcheckinok")
+    assert "definido pelo profissional" in log(page)
+    page.click("#voltar"); monitorar(page)
+    assert page.locator("#hud").get_attribute("data-checkin") == "60"
+    page.evaluate("S.pul.ultimaEma -= 120 * 60000")
+    expect(page.locator("#ema")).to_be_visible(timeout=5000)                       # o profissional liberou a madrugada
+
+
+def test_paciente_ajusta_horario_de_sono(page):
+    iniciar(page, DIA); responder(page, ALCOOL)
+    page.click("#engrenagem"); page.fill("#sonoini", "13"); page.fill("#sonofim", "16"); page.locator("#sonofim").blur()
+    monitorar(page); page.evaluate("S.pul.ultimaEma -= 600 * 60000"); page.wait_for_timeout(2500)
+    expect(page.locator("#ema")).to_be_hidden()                                    # 14h está dentro do sono informado

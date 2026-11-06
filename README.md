@@ -52,6 +52,8 @@ cadastro/triagem → perfil de risco → acompanhamento em **5 abas** (barra inf
 - **Níveis:** amarelo = contato do CAPS/UBS em até 24 h (inclui risco de recaída); vermelho = risco vital/SAMU. Recaída sozinha nunca aciona o SAMU.
 - **"Hoje e nos próximos dias"**: cartão com "Hoje você pode sentir…", "Nos próximos dias…", "O que ajuda agora" e, **sempre**, "Procure ajuda se…" (com CAPS/UBS e SAMU). Conteúdo por classe e faixa de horas em `rules.json/orientacao`, com `fonte` e `revisao_clinica: pendente`. Adapta-se ao observado (sono ruim, fissura alta, nível amarelo). Notificação simulada no início do dia e a cada mudança de fase. Substância mista: combina, com o "procure ajuda" do maior risco primeiro.
 
+- **Check-in agendado**: padrão 1x/dia (leve), 2x/dia (próximo), 3x/dia (intensivo), **nunca no horário de sono** (padrão 22h–7h, ajustável em Perfil e dados; o que vencer à noite fica para o despertar). Intervalo mais curto ou check-in de madrugada só por decisão do profissional, no painel. O check-in de segurança por anomalia da pulseira continua valendo à noite.
+
 ## Pulseira, filtro e escalonamento (simulados)
 - Serviço independente das telas; só para com **Parar** (com confirmação) ou **Encerrar sessão**.
 - Disparo por desvio da linha de base individual, em qualquer direção.

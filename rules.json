@@ -208,6 +208,12 @@
       },
       "_nota": "Critério vermelho: em paralelo, aviso ao contato de confiança e ligação ao 192 (simulada) após contagem com 'Cancelar (estou bem)'. Telemetria vai ao contato e ao painel do CAPS; o 192 recebe só voz."
     },
+    "checkin_agendado": {
+      "sono_inicio_h": 22,
+      "sono_fim_h": 7,
+      "opcoes_profissional_min": [60, 120, 240, 480, 720, 1440],
+      "_nota": "Padrão: 1x/dia (leve), 2x/dia (próximo), 3x/dia (intensivo). Nenhum check-in AGENDADO no horário de sono (ajustável pelo paciente); o que vencer à noite fica para o fim do sono. Intervalo mais curto ou check-in de madrugada só por decisão do profissional que acompanha o caso (painel). O check-in de segurança por anomalia da pulseira continua valendo à noite (risco vital)."
+    },
     "notificacao_diaria_h": 8
   },
 
@@ -330,9 +336,9 @@
     "_nota": "Valores PROPOSTOS para o protótipo, NÃO validados clinicamente. Com várias substâncias vale a classe de maior intensidade. Qualquer modificador presente sobe a intensidade em um degrau (não acumula; teto = intensivo).",
     "classe_sem_informacao": "depressores",
     "intensidades": {
-      "leve":      {"ordem":0, "rotulo":"Acompanhamento leve",     "frase":"Acompanhamos de forma leve", "checkin_min":480, "cooldown_min":120, "desvios_para_disparo":2.5, "sensibilidade":"baixa"},
-      "intenso":   {"ordem":1, "rotulo":"Acompanhamento próximo",  "frase":"Acompanhamos de perto",      "checkin_min":120, "cooldown_min":30,  "desvios_para_disparo":2.0, "sensibilidade":"média"},
-      "intensivo": {"ordem":2, "rotulo":"Acompanhamento intensivo","frase":"Acompanhamos bem de perto",  "checkin_min":60,  "cooldown_min":15,  "desvios_para_disparo":1.8, "sensibilidade":"alta"}
+      "leve":      {"ordem":0, "rotulo":"Acompanhamento leve",     "frase":"Acompanhamos de forma leve", "checkin_min":1440, "cooldown_min":120, "desvios_para_disparo":2.5, "sensibilidade":"baixa"},
+      "intenso":   {"ordem":1, "rotulo":"Acompanhamento próximo",  "frase":"Acompanhamos de perto",      "checkin_min":720, "cooldown_min":30,  "desvios_para_disparo":2.0, "sensibilidade":"média"},
+      "intensivo": {"ordem":2, "rotulo":"Acompanhamento intensivo","frase":"Acompanhamos bem de perto",  "checkin_min":480, "cooldown_min":15,  "desvios_para_disparo":1.8, "sensibilidade":"alta"}
     },
     "nomes_curtos": {"alcool":"o álcool","calmantes":"os calmantes","ghb":"o GHB","opioides":"os opioides","cocaina":"a cocaína","crack":"o crack","anfetaminas":"as anfetaminas","maconha":"a maconha","tabaco":"o cigarro","inalantes":"os inalantes","outra":"outra substância"},
     "classes": [

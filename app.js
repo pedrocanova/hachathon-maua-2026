@@ -5,7 +5,7 @@
 const ORDEM = {verde:0, amarelo:1, vermelho:2};
 const ROTULO = {verde:'Risco baixo agora', amarelo:'Procure o CAPS AD ou a UBS em até 24 h', vermelho:'Busque ajuda agora'};
 const CHAVE = 'pulso_v2';
-const CAMPOS = ['resp','contato','etapa','pos','nivel','motivos','info','log','base','pre','compFeito','tTriagem','revisao','pul','alertaId','locAlerta','locPrevia','telemetria','ultimaEmaResp','ultimoUso','aba','vistos','ultimaQ','avisos'];
+const CAMPOS = ['checkinProf','resp','contato','etapa','pos','nivel','motivos','info','log','base','pre','compFeito','tTriagem','revisao','pul','alertaId','locAlerta','locPrevia','telemetria','ultimaEmaResp','ultimoUso','aba','vistos','ultimaQ','avisos'];
 const GPS_SIM = {lat:-23.5505, lon:-46.6333}; // coordenadas simuladas
 const FONTES = {pulseira:'pulseira', celular:'celular', ambos:'pulseira + celular'};
 const fonte = () => FONTES[S.pul.fonte || 'ambos'];
@@ -16,7 +16,7 @@ function novoEstado(){
   const agoraReal = Date.now();
   const st = {salvar:false, resp:{}, contato:null, etapa:'nucleo', pos:0, nivel:null, motivos:[], info:[], log:[], base:null, pre:[], compFeito:false,
     tTriagem:null, revisao:{status:'pendente', nivel:null, obs:'', em:null}, alertaId:0, locAlerta:null, locPrevia:false, telemetria:[], ultimaEmaResp:{},
-    ultimoUso:null, aba:'inicio', vistos:[], ultimaQ:null, avisos:null,
+    ultimoUso:null, checkinProf:null, aba:'inicio', vistos:[], ultimaQ:null, avisos:null,
     pul:{ativo:false, cenario:'estavel', con:'wifi', bateria:100, buffer:[], enviados:0, ultimaEma:null, ultimoAlerta:null, i:0,
       vel: URLP.has('rapido') ? 60 : [1, 5, 60].includes(+URLP.get('vel')) ? +URLP.get('vel') : 1,
       t0Real:agoraReal, t0Sim:agoraReal, desloc:0, ativManual:null, fonte:'ambos', silencioAte:null, treino:null, notifDia:null, faseKey:null}};
@@ -37,6 +37,9 @@ const agora = () => { const p = S.pul; return p.t0Sim + (Date.now() - p.t0Real) 
 const minDesde = t => t == null ? Infinity : (agora() - t) / 60000;
 const horaSim = () => new Date(agora()).getHours();
 const noite = () => { const c = R.sensor.checkin_sensor, h = horaSim(); return h >= c.noite_inicio_h || h < c.noite_fim_h; };
+// horário de sono: nenhum check-in agendado (o paciente pode ajustar; só o profissional libera check-in de madrugada)
+const horarioSono = () => S.pul.sono || {ini:R.sensor.checkin_agendado.sono_inicio_h, fim:R.sensor.checkin_agendado.sono_fim_h};
+const dormindo = () => { const {ini, fim} = horarioSono(), h = horaSim(); return ini > fim ? h >= ini || h < fim : h >= ini && h < fim; };
 const escalaCurta = () => Math.min(S.pul.vel, R.sensor.escalonamento.acelerar_contagens_max); // contagens curtas aceleram no máximo 5x
 function mudarVel(v){ const a = agora() - S.pul.desloc * 60000; S.pul.t0Sim = a; S.pul.t0Real = Date.now(); S.pul.vel = v; Pulseira.ligar(); store.gravar(); }
 function irParaHora(h){ const d = new Date(agora()); S.pul.desloc += ((h - d.getHours() + 24) % 24) * 60 - d.getMinutes(); }
@@ -132,7 +135,7 @@ function perfil(){
   const regime = horas === null ? R.regimes.lista[0] : R.regimes.lista.find(g => g.ate_h === null || horas < g.ate_h);
   const agudo = regime.id === 'agudo';
   const intId = porOrdem(Math.max(0, Math.min(ord(classe.intensidade) + (mods.length ? 1 : 0), 2) + regime.ajuste_intensidade));
-  const int = P.intensidades[intId];
+  const int = P.intensidades[intId], checkin = S.checkinProf?.min ?? int.checkin_min, sono = horarioSono();
   const j = classe.janela;
   const fase = !agudo ? {id:regime.id, texto:`${regime.nome}, semana ${Math.floor(horas / 168) + 1}`}
     : horas === null ? {id:'desconhecida', texto:'último uso não informado: por segurança, consideramos a fase de maior risco'}
@@ -151,11 +154,11 @@ function perfil(){
     !agudo && `Você está na ${regime.nome.toLowerCase()}: check-ins mais espaçados, com foco em ${foco.join(', ')}.`,
     cands.length > 1 && `Você marcou mais de uma substância: vale o acompanhamento da de maior risco (${nomes}).`,
     mods.length && `Reforçamos o acompanhamento porque: ${mods.map(m => m.motivo).join('; ')}.`,
-    `Check-in a cada ${duracao(int.checkin_min)}. A pulseira pede um check-in extra quando seus sinais se afastam do seu normal (sensibilidade ${int.sensibilidade}).`,
+    `Check-in a cada ${duracao(checkin)}${S.checkinProf ? ' (definido pelo profissional que acompanha você)' : ''}${S.checkinProf?.noite ? '.' : `, nunca no seu horário de sono (${sono.ini}h às ${sono.fim}h).`} A pulseira pede um check-in extra quando seus sinais se afastam do seu normal (sensibilidade ${int.sensibilidade}).`,
     riscoVital ? `Prestamos atenção em: ${foco.join(', ')}.` : `O foco é ${foco.join(', ')}.`,
     horas === null && 'Você não informou o último uso: por segurança, consideramos que está na fase de maior risco.'
   ].filter(Boolean);
-  return {classe, cands, intId, int, mods, horas, regime, agudo, fase, motivos, nomes, nomesDe, riscoVital, foco, depressorAgudo,
+  return {checkin, classe, cands, intId, int, mods, horas, regime, agudo, fase, motivos, nomes, nomesDe, riscoVital, foco, depressorAgudo,
     ema: agudo ? classe.ema : (classe.ema_recuperacao || regime.ema),
     altoRisco: depressorAgudo && intId === 'intensivo',
     dia: S.tTriagem ? Math.floor(minDesde(S.tTriagem) / 1440) + 1 : 1};
@@ -413,12 +416,16 @@ function abaDados(){
   $(`<h1>Perfil e dados</h1>
   <div class=card><b>Consentimentos</b><p>${S.salvar ? 'Seus dados ficam só neste aparelho, até você encerrar a sessão.' : 'Seus dados não estão sendo guardados: somem ao fechar.'}</p>
     <label class=check><input type=checkbox id=locprevia ${S.locPrevia ? 'checked' : ''}> <span>Em alerta vermelho, já compartilhar minha localização com meu contato e o CAPS (consentimento separado; pode desligar quando quiser).</span></label></div>
+  <div class=card id=sono><b>Meu horário de sono</b><p class=aviso>Nenhum check-in agendado acontece nesse horário.</p>
+    <div class=duas><label>Durmo às (h)<input id=sonoini type=number min=0 max=23 value=${horarioSono().ini}></label><label>Acordo às (h)<input id=sonofim type=number min=0 max=23 value=${horarioSono().fim}></label></div></div>
   <button class=big id=resumo>Resumo para revisão clínica</button>
   <button class=sec id=refazer>Refazer a triagem</button>
   <button class=sec id=encerrar>Encerrar sessão e apagar dados</button>
   <button class=sec id=abrirdemo>Modo demonstração</button>`);
   el('app').dataset.aba = 'dados';
   el('locprevia').onchange = e => { S.locPrevia = e.target.checked; registrar('paciente', S.nivel, S.locPrevia ? 'Consentiu compartilhar localização em alertas vermelhos' : 'Retirou o consentimento de localização em alertas'); store.gravar(); };
+  const sono = () => { const h = x => Math.max(0, Math.min(23, parseInt(el(x).value, 10) || 0)); S.pul.sono = {ini:h('sonoini'), fim:h('sonofim')}; registrar('paciente', S.nivel, `Horário de sono: ${S.pul.sono.ini}h às ${S.pul.sono.fim}h`); store.gravar(); };
+  el('sonoini').onchange = sono; el('sonofim').onchange = sono;
   on('resumo', () => ir('resumo')); on('refazer', recomecar); on('encerrar', telaEncerrar); on('abrirdemo', () => ir('demo'));
 }
 // vermelho: tela inteira (esconde a navegação), sem exercício de respiração. A ligação ao 192 depende da origem (rules.json/sensor.escalonamento.por_origem)
@@ -545,7 +552,7 @@ function resumo(){
   return {documento:'Resumo para revisão clínica', aviso:R._meta.aviso, observacao:'Classificação de risco. Não é diagnóstico.', gerado_em:new Date().toISOString(),
     status_revisao:S.revisao.status, revisao:S.revisao, nivel:S.nivel,
     perfil:{classe:pf.classe.id, intensidade:pf.intId, regime:pf.regime.id, dia_acompanhamento:pf.dia, modificadores:pf.mods.map(m => m.motivo), fase:pf.fase.texto,
-      horas_desde_ultimo_uso_estimadas: pf.horas === null ? null : Math.round(pf.horas), checkin_min:pf.int.checkin_min},
+      horas_desde_ultimo_uso_estimadas: pf.horas === null ? null : Math.round(pf.horas), checkin_min:pf.checkin, checkin_definido_por:S.checkinProf ? 'profissional' : 'perfil'},
     substancias:rotuloOpcao('q7', r.q7), ultima_dose:rotuloOpcao('q12', r.q12)[0] ?? null,
     ultimo_uso: S.ultimoUso ? {...S.ultimoUso, tempo_sem_usar:textoSemUso()} : null, idade:rotuloOpcao('q1', r.q1)[0] ?? null,
     criterios:S.motivos.map(m => ({nivel:m.nivel, motivo:m.motivo})), orientacoes:S.info.map(m => m.motivo),
@@ -582,12 +589,22 @@ function painel(){
     <label>Nível após revisão<select id=profnivel>${['vermelho','amarelo','verde'].map(x => `<option ${x === n ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
     <label>Observação curta<input id=profobs maxlength=140 autocomplete=off></label>
     <button id=profok>Confirmar ou ajustar nível</button><p id=profmsg class=aviso aria-live=polite></p></div>
+  <div class=card id=checkinprof><b>Check-in agendado (decisão do profissional)</b><p class=aviso>Padrão do perfil: a cada ${duracao(perfil().int.checkin_min)}, nunca no horário de sono do paciente. Um intervalo mais curto ou check-in de madrugada deve ser decidido por quem acompanha o caso.</p>
+    <label>Intervalo<select id=profintervalo><option value="">Padrão do perfil</option>${R.sensor.checkin_agendado.opcoes_profissional_min.map(m => `<option value=${m} ${S.checkinProf?.min === m ? 'selected' : ''}>a cada ${duracao(m)}</option>`).join('')}</select></label>
+    <label class=check><input type=checkbox id=profnoite ${S.checkinProf?.noite ? 'checked' : ''}> <span>Também no horário de sono (pode acordar o paciente)</span></label>
+    <button id=profcheckinok>Salvar intervalo</button></div>
   <div class=log>${S.log.map(l => `${esc(l.t)} [${esc(l.origem)}] <span class="chip ${l.nivel}">${l.nivel}</span> ${esc(l.motivo)}`).join('<br>') || 'Sem registros'}</div>
   <button class=sec id=resumo>Resumo para revisão clínica</button><button class=big id=voltar>Voltar ao modo demonstração</button>`);
   on('profok', () => {
     const novo = el('profnivel').value, obs = el('profobs').value.trim().slice(0, 140), acao = novo === S.nivel ? 'confirmado' : 'ajustado';
     aplicar({nivel:novo, motivos:[{nivel:novo, motivo:`Nível ${acao} por profissional${obs ? ': ' + obs : ''}.`}, ...S.motivos]}, 'profissional');
     S.revisao = {status:'revisado', nivel:novo, obs, em:hora()}; store.gravar(); painel();
+  });
+  on('profcheckinok', () => {
+    const m = +el('profintervalo').value, noite = el('profnoite').checked;
+    S.checkinProf = m || noite ? {min: m || perfil().int.checkin_min, noite} : null;
+    registrar('profissional', S.nivel, S.checkinProf ? `Check-in definido pelo profissional: a cada ${duracao(S.checkinProf.min)}${noite ? ', inclusive no horário de sono' : ', fora do horário de sono'}` : 'Check-in voltou ao padrão do perfil');
+    store.gravar(); painel();
   });
   on('resumo', () => telaResumo(painel));
   on('voltar', () => ir('demo'));
@@ -665,7 +682,7 @@ const Pulseira = {
           else this.aviso = 'A pulseira notou uma mudança. Novo check-in só depois do intervalo mínimo.';
         }
       } else txt = 'Calibrando o seu normal (linha de base)…';
-      if (podeEma() && minDesde(S.pul.ultimaEma) >= pf.int.checkin_min) abrirEma('check-in');
+      if (podeEma() && minDesde(S.pul.ultimaEma) >= pf.checkin && (!dormindo() || S.checkinProf?.noite)) abrirEma('check-in'); // não acorda o paciente
       verificarNotificacoes(pf);
       this.txt = txt; hud(pf, leitura);
       if (this.n % 20 === 0) store.gravar();
@@ -681,13 +698,14 @@ function barra(){
   el('nav').querySelectorAll('[data-aba]').forEach(b => b.setAttribute('aria-current', b.dataset.aba === S.aba && !alerta ? 'page' : 'false'));
 }
 function hud(pf, l){
-  const prox = Math.max(0, pf.int.checkin_min - minDesde(S.pul.ultimaEma)), a = Pulseira.atividade;
+  const prox = Math.max(0, pf.checkin - minDesde(S.pul.ultimaEma)), a = Pulseira.atividade;
   const set = (id, t) => { const e = el(id); if (e) e.textContent = t; };
   set('fc', l.fc); set('mov', (+l.mov).toFixed(2)); set('st', Pulseira.txt); set('n', Pulseira.n); if (el('hud')) el('hud').dataset.n = Pulseira.n;
   set('fontegps', fonte()); set('fonteativ', fonte()); set('con', CONEXOES[S.pul.con]); set('bat', Math.round(S.pul.bateria) + '%');
   set('ativ', `${ATIVIDADES[a.ativ]}${a.cad ? ` · ${Math.round(a.cad)} passos/min${a.cv <= R.sensor.atividade.variacao_max_cadencia ? ', ritmado' : ''}` : ''}${a.vel ? ` · ${a.vel} km/h (GPS)` : ''}`);
   set('buf', S.pul.con === 'offline' ? `${S.pul.buffer.length} leituras guardadas (envio ao reconectar)` : Pulseira.aviso || `${S.pul.enviados} leituras enviadas`);
-  set('prox', E ? 'agora' : `em ${duracao(prox)}`); set('fasetxt', pf.fase.texto); set('relogio', new Date(agora()).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}));
+  const adia = !S.checkinProf?.noite && (dormindo() || (new Date(agora() + prox * 60000).getHours() - horarioSono().ini + 24) % 24 < (horarioSono().fim - horarioSono().ini + 24) % 24);
+  set('prox', E ? 'agora' : adia ? `às ${horarioSono().fim}h, depois do seu horário de sono` : `em ${duracao(prox)}`); set('fasetxt', pf.fase.texto); set('relogio', new Date(agora()).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}));
   set('dia', `Dia ${pf.dia} de acompanhamento · ${pf.regime.nome}`); set('pulslinha', linhaPulseira());
   if (treinoAtivo()) atualizarTreino(pf);
   desenhar();
@@ -727,7 +745,7 @@ function abaPulseira(){
   tema(temaPaciente(S.nivel));
   const hist = S.log.filter(l => ['pulseira', 'filtro', 'treino', 'check-in'].includes(l.origem)).slice(0, 5);
   $(`<h1>Pulseira</h1>
-  <div class=card id=hud data-perfil=${c.id} data-intensidade=${pf.intId} data-checkin=${pf.int.checkin_min} data-risco-vital=${pf.riscoVital} data-regime=${pf.regime.id}>
+  <div class=card id=hud data-perfil=${c.id} data-intensidade=${pf.intId} data-checkin=${pf.checkin} data-risco-vital=${pf.riscoVital} data-regime=${pf.regime.id}>
     <p class=destaque id=pulsestado>${at ? 'Monitorando' : 'Parada'}</p>
     ${at ? `<button class="big sec" id=parar>Parar o monitoramento</button><div id=parconf hidden><b>Parar o monitoramento?</b><div class=duas><button id=parSim>Sim, parar</button><button class=sec id=parNao>Continuar</button></div></div>`
          : '<button class=big id=mon>Começar o monitoramento</button>'}
