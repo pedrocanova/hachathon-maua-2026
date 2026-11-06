@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Pulso — triagem de apoio</title>
+<title>Pulso — triagem de risco</title>
 <style>
 /* Temas do Guia de Psicologia das Cores. O paciente nunca vê vermelho/amarelo vibrantes; sem branco puro. */
 :root{--bg:#F8F9FA;--pri:#4A90E2;--tx:#1f2933;--card:#FDFDFD;--btx:#fff}
@@ -35,11 +35,20 @@ small,.aviso{opacity:.85;font-size:15px}
 @keyframes resp{0%{transform:scale(.6)}40%{transform:scale(1)}100%{transform:scale(.6)}}
 @media (prefers-reduced-motion:reduce){#resp{animation-duration:20s}}
 canvas{width:100%;height:120px;background:var(--card);border-radius:10px}
-#monbar{position:fixed;left:0;right:0;bottom:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--card);border-top:2px solid var(--pri);display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;z-index:9}
+#barra{position:fixed;left:0;right:0;bottom:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--card);border-top:2px solid var(--pri);display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;z-index:20}
+#barra button{margin:0;padding:10px 14px}
+#sos{font-weight:700;letter-spacing:.05em;min-width:84px}
+#monwrap,#parconf{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 #monst{font-weight:600}
-#parconf{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-footer{max-width:560px;margin:auto;padding:0 16px 16px}
-footer button{font-size:15px;padding:8px 12px}
+#ema{position:fixed;inset:0;background:#0006;z-index:10;overflow:auto;padding:16px 16px 140px}
+#emacorpo{max-width:560px;margin:auto;background:var(--bg);border-radius:16px;padding:12px 16px}
+.destaque{font-size:1.25em;font-weight:600;margin:0 0 8px}
+.vivo{display:grid;grid-template-columns:1fr 1fr;gap:8px}.vivo canvas,.vivo p,.vivo>small{grid-column:1/-1}
+.num{display:block;font-size:1.6em}
+.tab{overflow-x:auto}table{border-collapse:collapse;width:100%;background:var(--card)}td,th{padding:8px;border-bottom:1px solid #8884;text-align:left}
+select{display:block;width:100%;font:inherit;padding:10px;margin:4px 0 8px;border-radius:10px}
+pre{white-space:pre-wrap;word-break:break-word;font-size:12px;max-height:320px;overflow:auto}
+@media print{#barra,#ema,button,details>summary{display:none!important}body{background:#fff;color:#000;padding:0}.card{border:1px solid #999}}
 /* painel do profissional: aqui sim vermelho/laranja para priorização */
 .log{font:13px monospace;max-height:240px;overflow:auto;background:#FDFDFD;color:#222;padding:8px;border-radius:8px}
 .chip{padding:2px 8px;border-radius:6px;color:#fff;font-size:14px}.chip.vermelho{background:#C62828}.chip.amarelo{background:#EF6C00}.chip.verde{background:#2E7D32}
@@ -48,11 +57,15 @@ footer button{font-size:15px;padding:8px 12px}
 </head>
 <body data-tema="normal">
 <main id="app">Carregando…</main>
-<footer><button class="sec" id="apagar">Apagar meus dados</button></footer>
-<div id="monbar" role="status" hidden>
-  <span id="monst">Monitorando…</span>
-  <button id="parar">Parar</button>
-  <span id="parconf" hidden>Parar o monitoramento? <button id="parSim">Sim, parar</button><button class="sec" id="parNao">Continuar</button></span>
+<div id="ema" role="dialog" aria-modal="true" aria-label="Check-in" hidden><div id="emacorpo"></div></div>
+<div id="barra" hidden>
+  <button id="sos" aria-label="SOS: pedir ajuda agora">SOS</button>
+  <span id="monwrap" role="status" hidden>
+    <span id="monst">Monitorando…</span>
+    <button class="sec" id="parar">Parar</button>
+    <span id="parconf" hidden>Parar o monitoramento? <button id="parSim">Sim, parar</button><button class="sec" id="parNao">Continuar</button></span>
+  </span>
+  <button class="sec" id="encerrar">Encerrar sessão</button>
 </div>
 <script src="app.js"></script>
 </body>
