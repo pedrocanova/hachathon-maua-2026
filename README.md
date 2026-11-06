@@ -4,10 +4,16 @@ Pulseira de baixo custo + app para quem está parando o uso de substâncias.
 **Classificação de risco, não é diagnóstico.** Todo resultado fica pendente de revisão por profissional. Limiares, perfis e orientações são parâmetros iniciais **não validados clinicamente** (`rules.json/_meta.aviso`).
 
 ## Como rodar
+Precisa só do **Python 3** instalado (https://www.python.org/downloads/; no Windows, marque "Add Python to PATH").
 ```
-python -m http.server 8000      # ou: rodar.bat (Windows, Python portátil em ./python)
+git clone https://github.com/pedrocanova/hachathon-maua-2026.git
+cd hachathon-maua-2026
+git checkout claude/adoring-ramanujan-kfmic7
+python -m http.server 8000
 ```
-Abra http://localhost:8000 (precisa de servidor porque o app carrega `rules.json`).
+Sem git: no GitHub, escolha a branch `claude/adoring-ramanujan-kfmic7` → **Code → Download ZIP**, descompacte, abra um terminal na pasta e rode `python -m http.server 8000`.
+
+Abra **http://localhost:8000/?rapido&hora=14** no navegador (precisa de servidor porque o app carrega `rules.json` e `textos.json`). Para ver como celular: F12 → ícone de celular.
 Roteiro de 3 minutos: [docs/demo.md](docs/demo.md).
 Parâmetros de demonstração: `?rapido` (tempo 60x), `?vel=5` (5x), `?hora=3` (começa às 3h). Também no "Modo demonstração".
 
