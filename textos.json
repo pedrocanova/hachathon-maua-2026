@@ -1,0 +1,40 @@
+{
+  "_meta": {
+    "revisao_clinica": "pendente",
+    "nota": "Textos de acolhimento do Pulso. Esperança com honestidade: sem prometer resultado e sem estatísticas. Nunca usar: viciado, limpo/sujo, usuário, fracasso, falhou, perdeu. Nas telas de emergência (vermelho, SOS, check-in de segurança) nenhum texto motivacional antes da ação."
+  },
+  "boas_vindas": {
+    "titulo": "Que bom que você está aqui",
+    "frases": [
+      "O Pulso vai acompanhar você nos próximos dias, junto com a equipe do CAPS AD ou da UBS.",
+      "Você não está sozinho(a) nesse caminho.",
+      "Dar o primeiro passo já importa."
+    ],
+    "pergunta_nome": "Como você quer ser chamado(a)? (opcional)"
+  },
+  "saudacao": {"manha": "Bom dia", "tarde": "Boa tarde", "noite": "Boa noite"},
+  "transicoes": {
+    "1": "Vamos começar com algumas informações sobre você.",
+    "2": "Obrigado por contar. Agora, sobre o uso: isso ajuda a entender o que esperar nos próximos dias.",
+    "3": "Obrigado. Saber como foram outras vezes ajuda a cuidar de você com segurança.",
+    "4": "Agora, como você está neste momento.",
+    "5": "Algumas perguntas sobre a sua saúde, para cuidar de você por inteiro.",
+    "6": "As próximas perguntas são mais delicadas. Fazemos a todas as pessoas, para cuidar de você com segurança. Você pode pular qualquer uma.",
+    "7": "Quase lá. Vamos ver como cuidar de você."
+  },
+  "recaida": {
+    "acolhe": "Obrigado por contar. Isso não apaga o que você já fez.",
+    "conquista": "Antes disso, você ficou {tempo} sem usar. Recomeçar faz parte do caminho: você não volta ao zero.",
+    "opcoes": "Se quiser, escolha um próximo passo:"
+  },
+  "fissura": {
+    "titulo": "Essa vontade vai passar",
+    "texto": "A vontade de usar vem em ondas e costuma diminuir em alguns minutos. Você não precisa atravessar isso sozinho(a).",
+    "passo": "Um passo pequeno agora: respire com o círculo por 1 minuto."
+  },
+  "poscrise": "Você passou por um momento difícil e pediu ajuda. Isso é força.",
+  "passo_hoje": "Um passo pequeno para hoje",
+  "noite_anomalia": "A pulseira notou uma pequena mudança durante o seu sono. Registramos sem acordar você; a equipe do CAPS AD ou da UBS pode entrar em contato pela manhã.",
+  "checkin_adiar": "Lembrar em 1 hora",
+  "vazio": "Nada por aqui ainda. Tudo bem."
+}

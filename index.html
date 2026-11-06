@@ -69,6 +69,13 @@ pre{white-space:pre-wrap;word-break:break-word;font-size:12px;max-height:320px;o
 /* painel do profissional: aqui sim vermelho/laranja para priorização */
 .log{font:13px monospace;max-height:240px;overflow:auto;background:#FDFDFD;color:#222;padding:8px;border-radius:8px}
 .chip{padding:2px 8px;border-radius:6px;color:#fff;font-size:14px}.chip.vermelho{background:#C62828}.chip.amarelo{background:#EF6C00;color:#1A0A00}.chip.verde{background:#2E7D32}
+/* acolhimento: fonte maior, espaço generoso, microanimação lenta (>= 800 ms) */
+.acolhe{font-size:1.1em;padding:8px 4px}.acolhe h1{font-size:1.6em}
+.saudacao{font-size:1.25em;margin:4px 0 0}.transicao{font-size:1.05em;margin:8px 0 0}
+.passo{border-left:4px solid var(--pri);padding-left:12px}
+.acolhe,.transicao,#saudacao{animation:surge 900ms ease-out}
+@keyframes surge{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.acolhe,.transicao,#saudacao{animation:none}}
 [hidden]{display:none!important}
 </style>
 </head>

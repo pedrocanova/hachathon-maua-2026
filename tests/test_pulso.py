@@ -734,7 +734,7 @@ def test_contagem(page, resp, esperado):
 def test_checkin_agendado_nao_acorda_o_paciente(page):
     iniciar(page, NOITE); responder(page, ALCOOL)
     monitorar(page)
-    assert page.locator("#hud").get_attribute("data-checkin") == "480"            # intensivo: 3x/dia (antes: a cada 1 h)
+    assert page.locator("#hud").get_attribute("data-checkin") == "360"            # fase aguda de depressores: a cada 6 h acordado
     page.evaluate("S.pul.ultimaEma -= 600 * 60000")                               # check-in vencido às 23h
     page.wait_for_timeout(2500)
     expect(page.locator("#ema")).to_be_hidden()
@@ -758,3 +758,22 @@ def test_paciente_ajusta_horario_de_sono(page):
     page.click("#engrenagem"); page.fill("#sonoini", "13"); page.fill("#sonofim", "16"); page.locator("#sonofim").blur()
     monitorar(page); page.evaluate("S.pul.ultimaEma -= 600 * 60000"); page.wait_for_timeout(2500)
     expect(page.locator("#ema")).to_be_hidden()                                    # 14h está dentro do sono informado
+
+
+# ---------- acolhimento (fumaça) ----------
+def test_boas_vindas_com_nome_e_saudacao(page):
+    page.goto(DIA); page.fill("#nome", "Lu"); page.click("#aceito")
+    expect(page.locator(".transicao")).to_be_visible()
+    responder(page, VERDE)
+    expect(page.locator("#saudacao")).to_contain_text("Lu")
+
+
+def test_fissura_alta_abre_tela_calma(page):
+    iniciar(page); responder(page, TABACO)
+    page.click("#checkin")
+    for _ in range(5):
+        if page.locator("#ema").is_hidden(): break
+        q = page.locator("#emacorpo section[data-q]").get_attribute("data-q")
+        if q == "q22": page.click("#emacorpo .op[data-v='9']")
+        else: page.locator("#emacorpo .op").first.click()
+    expect(page.locator("#fissura")).to_be_visible()

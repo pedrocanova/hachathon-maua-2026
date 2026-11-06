@@ -5,12 +5,12 @@
 const ORDEM = {verde:0, amarelo:1, vermelho:2};
 const ROTULO = {verde:'Risco baixo agora', amarelo:'Procure o CAPS AD ou a UBS em até 24 h', vermelho:'Busque ajuda agora'};
 const CHAVE = 'pulso_v2';
-const CAMPOS = ['checkinProf','resp','contato','etapa','pos','nivel','motivos','info','log','base','pre','compFeito','tTriagem','revisao','pul','alertaId','locAlerta','locPrevia','telemetria','ultimaEmaResp','ultimoUso','aba','vistos','ultimaQ','avisos'];
+const CAMPOS = ['nome','checkinProf','resp','contato','etapa','pos','nivel','motivos','info','log','base','pre','compFeito','tTriagem','revisao','pul','alertaId','locAlerta','locPrevia','telemetria','ultimaEmaResp','ultimoUso','aba','vistos','ultimaQ','avisos'];
 const GPS_SIM = {lat:-23.5505, lon:-46.6333}; // coordenadas simuladas
 const FONTES = {pulseira:'pulseira', celular:'celular', ambos:'pulseira + celular'};
 const fonte = () => FONTES[S.pul.fonte || 'ambos'];
 const URLP = new URLSearchParams(location.search);
-let R, S, E = null, AL = null, ESC = null;
+let T = {}, R, S, E = null, AL = null, ESC = null;
 
 function novoEstado(){
   const agoraReal = Date.now();
@@ -39,7 +39,8 @@ const horaSim = () => new Date(agora()).getHours();
 const noite = () => { const c = R.sensor.checkin_sensor, h = horaSim(); return h >= c.noite_inicio_h || h < c.noite_fim_h; };
 // horário de sono: nenhum check-in agendado (o paciente pode ajustar; só o profissional libera check-in de madrugada)
 const horarioSono = () => S.pul.sono || {ini:R.sensor.checkin_agendado.sono_inicio_h, fim:R.sensor.checkin_agendado.sono_fim_h};
-const dormindo = () => { const {ini, fim} = horarioSono(), h = horaSim(); return ini > fim ? h >= ini || h < fim : h >= ini && h < fim; };
+const naJanela = () => { const {ini, fim} = horarioSono(), h = horaSim(); return ini > fim ? h >= ini || h < fim : h >= ini && h < fim; };
+const dormindo = () => naJanela() || !!S.pul.sonoSensor; // janela de silêncio OU pulseira indicando sono
 const escalaCurta = () => Math.min(S.pul.vel, R.sensor.escalonamento.acelerar_contagens_max); // contagens curtas aceleram no máximo 5x
 function mudarVel(v){ const a = agora() - S.pul.desloc * 60000; S.pul.t0Sim = a; S.pul.t0Real = Date.now(); S.pul.vel = v; Pulseira.ligar(); store.gravar(); }
 function irParaHora(h){ const d = new Date(agora()); S.pul.desloc += ((h - d.getHours() + 24) % 24) * 60 - d.getMinutes(); }
@@ -134,8 +135,9 @@ function perfil(){
   const horas = horasSemUso();
   const regime = horas === null ? R.regimes.lista[0] : R.regimes.lista.find(g => g.ate_h === null || horas < g.ate_h);
   const agudo = regime.id === 'agudo';
+  const checkin = S.checkinProf?.min ?? Math.max(R.sensor.checkin_agendado.minimo_padrao_min, regime.checkin_min ?? P.intensidades[porOrdem(Math.max(0, Math.min(ord(classe.intensidade) + (mods.length ? 1 : 0), 2) + regime.ajuste_intensidade))].checkin_min);
   const intId = porOrdem(Math.max(0, Math.min(ord(classe.intensidade) + (mods.length ? 1 : 0), 2) + regime.ajuste_intensidade));
-  const int = P.intensidades[intId], checkin = S.checkinProf?.min ?? int.checkin_min, sono = horarioSono();
+  const int = P.intensidades[intId], sono = horarioSono();
   const j = classe.janela;
   const fase = !agudo ? {id:regime.id, texto:`${regime.nome}, semana ${Math.floor(horas / 168) + 1}`}
     : horas === null ? {id:'desconhecida', texto:'último uso não informado: por segurança, consideramos a fase de maior risco'}
@@ -186,6 +188,7 @@ function cartaoOrientacao(pf){
   return `<section class=card id=orientacao data-itens="${itens.map(x => x.it.id).join(',')}">
     <h2>Hoje e nos próximos dias</h2><p class=aviso>${esc(R.orientacao.aviso)}</p>
     ${ad.length ? `<ul id=adaptacoes>${ad.map(([k, a]) => `<li data-adapt=${k}><b>${esc(a.texto)}</b></li>`).join('')}</ul>` : ''}
+    <p class=passo id=passohoje><b>${esc(T.passo_hoje)}:</b> ${esc(itens[0]?.it.ajuda[0] || '')}</p>
     <h3>Hoje você pode sentir…</h3><ul>${lista('hoje')}</ul>
     <h3>Nos próximos dias pode acontecer…</h3><ul>${lista('proximos')}</ul>
     <h3>O que ajuda agora</h3><ul>${lista('ajuda')}</ul>
@@ -242,7 +245,7 @@ function telaPergunta(q, ctx, responder){
   else corpo = `<div class="opc${q.tipo === 'escala010' ? ' grade' : ''}">${opcoes(q).map(botao).join('')}</div>${q.tipo === 'multi' ? '<button class=big data-acao=continuar>Continuar</button>' : ''}`;
   render(alvo, `<div class=bar role=progressbar aria-valuemin=0 aria-valuemax=${ctx.total} aria-valuenow=${ctx.pos}><i style="width:${100 * ctx.pos / ctx.total}%"></i></div>
   <small>${ctx.rotulo} · ${ctx.pos + 1} de ${ctx.total}</small>
-  <section class=card data-q="${q.id}"><h2>${esc(q.texto)}</h2>${q.ajuda ? `<p class=aviso>${esc(q.ajuda)}</p>` : ''}${corpo}</section>
+  ${ctx.intro ? `<p class=transicao>${esc(ctx.intro)}</p>` : ''}<section class=card data-q="${q.id}"><h2>${esc(q.texto)}</h2>${q.ajuda ? `<p class=aviso>${esc(q.ajuda)}</p>` : ''}${corpo}</section>
   <button class=sec data-acao=pular>Prefiro não responder</button>
   ${ctx.voltar ? '<button class=sec data-acao=voltar>Voltar</button>' : ''}${ctx.extra || ''}`);
   const raiz = el(alvo), f = s => raiz.querySelector(s), ops = [...raiz.querySelectorAll('.op[data-v]')];
@@ -273,7 +276,8 @@ function triagem(){
   if (S.pos >= vs.length) return S.etapa === 'nucleo' ? fimNucleo() : fimComplementar();
   const q = vs[S.pos], comp = S.etapa === 'complementar';
   tema('normal');
-  telaPergunta(q, {pos:S.pos, total:vs.length, rotulo: comp ? 'Perguntas complementares (opcional)' : `Triagem · bloco ${q.bloco}`,
+  const intro = !comp && (S.pos === 0 || vs[S.pos - 1].bloco !== q.bloco) ? T.transicoes?.[q.bloco] : '';
+  telaPergunta(q, {intro, pos:S.pos, total:vs.length, rotulo: comp ? 'Perguntas complementares (opcional)' : `Triagem · bloco ${q.bloco}`,
     voltar: S.pos > 0 && (() => { S.pos--; triagem(); }), extra: comp ? '<button class=sec id=pulartudo>Pular as complementares</button>' : ''},
     (v, extra) => {
       if (v === undefined) delete S.resp[q.id]; else S.resp[q.id] = v;
@@ -344,7 +348,11 @@ function inicio(){
   tema(temaPaciente(S.nivel));
   const presencial = S.motivos.some(m => m.encaminhar === 'presencial');
   const nComp = S.compFeito ? 0 : visiveis('complementar').length;
-  $(`<small>Classificação de risco</small><h1 id=nivel data-nivel=${n}>${ROTULO[n]}</h1>${statusRevisao()}
+  const hs = horaSim(), saud = T.saudacao[hs < 12 && hs >= 5 ? 'manha' : hs < 18 && hs >= 12 ? 'tarde' : 'noite'];
+  const posCrise = S.log.some(l => l.nivel === 'vermelho') && S.nivel !== 'vermelho';
+  $(`<p class=saudacao id=saudacao>${esc(saud)}${S.nome ? ', ' + esc(S.nome) : ''}.</p>
+  ${posCrise ? `<p class="card acolhe" id=poscrise>${esc(T.poscrise)}</p>` : ''}
+  <small>Classificação de risco</small><h1 id=nivel data-nivel=${n}>${ROTULO[n]}</h1>${statusRevisao()}
   ${n === 'vermelho' ? '<button class=big id=abrirajuda>Abrir a tela de ajuda</button>' : ''}
   ${suic ? '<a class="btn big sec" href="tel:188">Conversar com o CVV 188 (24 h, gratuito)</a>' : ''}
   ${presencial ? '<p class=card id=presencial><b>Parar em casa, sem acompanhamento, não é indicado.</b> Procure avaliação presencial no CAPS AD, na UBS ou no pronto-socorro.</p>' : ''}
@@ -381,11 +389,14 @@ function useiDeNovo(){
   registrar('paciente', S.nivel, `Contou que usou de novo (antes: ${antesTxt}). Contador reiniciado.`);
   if (antes !== null && antes >= U.amarelo_se_h_gte) aplicar({nivel:'amarelo', motivos:[{nivel:'amarelo', motivo:U.motivo_amarelo}]}, 'paciente');
   store.gravar();
-  $(`<h1>Obrigado por contar</h1><div class=card id=acolhe><p>${esc(U.mensagem)}</p><p>${esc(U.oferta)}</p>
-    ${opi ? `<p id=tolerancia><b>${esc(U.opioides)}</b></p>` : ''}
-    <a class="btn big" target=_blank rel=noopener href="${mapa('CAPS AD UBS')}">CAPS AD / UBS mais próximos</a></div>
+  $(`<div class=acolhe id=acolhe><h1>${esc(T.recaida.acolhe)}</h1>
+    ${antes !== null ? `<p id=conquista>${esc(T.recaida.conquista.replace('{tempo}', antesTxt.replace(' sem usar', '')))}</p>` : ''}</div>
+    ${opi ? `<p class=card id=tolerancia>${esc(U.opioides)}</p>` : ''}
+    <p>${esc(T.recaida.opcoes)}</p>
+    <a class="btn big" target=_blank rel=noopener href="${mapa('CAPS AD UBS')}">Falar com o CAPS AD ou a UBS</a>
+    <button class="big sec" id=respirarrec>Respirar um pouco</button>
   <button class="big sec" id=voltarinicio>Voltar ao início</button>`);
-  on('voltarinicio', () => ir('inicio'));
+  on('voltarinicio', () => ir('inicio')); on('respirarrec', () => ir('respirar'));
 }
 function corrigirUso(){
   const q = R.triagem.find(x => x.id === 'q12');
@@ -418,6 +429,8 @@ function abaDados(){
     <label class=check><input type=checkbox id=locprevia ${S.locPrevia ? 'checked' : ''}> <span>Em alerta vermelho, já compartilhar minha localização com meu contato e o CAPS (consentimento separado; pode desligar quando quiser).</span></label></div>
   <div class=card id=sono><b>Meu horário de sono</b><p class=aviso>Nenhum check-in agendado acontece nesse horário.</p>
     <div class=duas><label>Durmo às (h)<input id=sonoini type=number min=0 max=23 value=${horarioSono().ini}></label><label>Acordo às (h)<input id=sonofim type=number min=0 max=23 value=${horarioSono().fim}></label></div></div>
+  <button class=sec id=pausar>${minDesde(S.pul.pausaAte) < 0 ? 'Retomar check-ins programados' : 'Pausar check-ins programados por 24 h'}</button>
+  <p class=aviso>A pausa não desliga o SOS nem os alertas de segurança da pulseira.</p>
   <button class=big id=resumo>Resumo para revisão clínica</button>
   <button class=sec id=refazer>Refazer a triagem</button>
   <button class=sec id=encerrar>Encerrar sessão e apagar dados</button>
@@ -426,6 +439,7 @@ function abaDados(){
   el('locprevia').onchange = e => { S.locPrevia = e.target.checked; registrar('paciente', S.nivel, S.locPrevia ? 'Consentiu compartilhar localização em alertas vermelhos' : 'Retirou o consentimento de localização em alertas'); store.gravar(); };
   const sono = () => { const h = x => Math.max(0, Math.min(23, parseInt(el(x).value, 10) || 0)); S.pul.sono = {ini:h('sonoini'), fim:h('sonofim')}; registrar('paciente', S.nivel, `Horário de sono: ${S.pul.sono.ini}h às ${S.pul.sono.fim}h`); store.gravar(); };
   el('sonoini').onchange = sono; el('sonofim').onchange = sono;
+  on('pausar', () => { const p = minDesde(S.pul.pausaAte) < 0; S.pul.pausaAte = p ? null : agora() + 1440 * 60000; registrar('paciente', S.nivel, p ? 'Check-ins programados retomados' : 'Check-ins programados pausados por 24 h (SOS e alertas de segurança continuam)'); store.gravar(); abaDados(); });
   on('resumo', () => ir('resumo')); on('refazer', recomecar); on('encerrar', telaEncerrar); on('abrirdemo', () => ir('demo'));
 }
 // vermelho: tela inteira (esconde a navegação), sem exercício de respiração. A ligação ao 192 depende da origem (rules.json/sensor.escalonamento.por_origem)
@@ -641,7 +655,7 @@ const Pulseira = {
   timer:null, n:0, fc:[], mov:[], acima:0, txt:'', aviso:'', atividade:PARADO, descarte:null,
   iniciar(){ S.pul.ativo = true; S.pul.ultimaEma ??= agora(); registrar('pulseira', S.nivel, 'Monitoramento iniciado'); store.gravar(); this.ligar(); },
   ligar(){ clearInterval(this.timer); this.timer = null; if (S.pul.ativo) this.timer = setInterval(() => this.passo(), Math.max(50, 500 / S.pul.vel)); barra(); },
-  parar(motivo = 'Monitoramento parado pelo usuário'){
+  parar(motivo = 'Monitoramento parado pela pessoa'){
     clearInterval(this.timer); this.timer = null;
     if (S.pul.ativo){ S.pul.ativo = false; registrar('pulseira', S.nivel, motivo); store.gravar(); }
     barra();
@@ -678,11 +692,18 @@ const Pulseira = {
         this.acima = fcAlto || movAlto ? this.acima + 1 : 0;
         if (this.acima >= cfg.amostras_persistencia){
           this.acima = 0;
-          if (podeAlerta() && minDesde(S.pul.ultimoAlerta) >= cfg.intervalo_min_alerta_min) abrirAlertaSensor(fcAlto ? (zf < 0 ? 'FC abaixo do seu normal' : 'FC acima do seu normal') : 'tremor/movimento em repouso');
+          const grave = Math.max(Math.abs(zf), Math.abs(zm)) >= k * cfg.checkin_agendado.sensor_mult_vermelho;
+          if (!grave && dormindo() && minDesde(S.pul.ultimoAlerta) >= cfg.intervalo_min_alerta_min){
+            S.pul.ultimoAlerta = agora(); registrar('pulseira', 'amarelo', 'Mudança leve nos sinais durante o sono: registrada sem alarme; CAPS/UBS pode contatar de manhã');
+            aplicar({nivel:'amarelo', motivos:[{nivel:'amarelo', motivo:T.noite_anomalia}]}, 'pulseira');
+          } else if (podeAlerta() && minDesde(S.pul.ultimoAlerta) >= cfg.intervalo_min_alerta_min) abrirAlertaSensor(fcAlto ? (zf < 0 ? 'FC abaixo do seu normal' : 'FC acima do seu normal') : 'tremor/movimento em repouso');
           else this.aviso = 'A pulseira notou uma mudança. Novo check-in só depois do intervalo mínimo.';
         }
       } else txt = 'Calibrando o seu normal (linha de base)…';
-      if (podeEma() && minDesde(S.pul.ultimaEma) >= pf.checkin && (!dormindo() || S.checkinProf?.noite)) abrirEma('check-in'); // não acorda o paciente
+      const ag = R.sensor.checkin_agendado, dia = new Date(agora()).toDateString();
+      if (S.pul.agDia !== dia){ S.pul.agDia = dia; S.pul.agN = 0; }
+      if (podeEma() && minDesde(S.pul.ultimaEma) >= pf.checkin && (!dormindo() || S.checkinProf?.noite) && !(minDesde(S.pul.pausaAte) < 0)
+          && S.pul.agN < (S.checkinProf?.limite ?? ag.limite_diario) && minDesde(S.pul.ultimoAlerta) >= ag.intervalo_min_entre_prompts_min){ S.pul.agN++; abrirEma('check-in'); } // não acorda o paciente
       verificarNotificacoes(pf);
       this.txt = txt; hud(pf, leitura);
       if (this.n % 20 === 0) store.gravar();
@@ -736,7 +757,7 @@ function atualizarTreino(pf){
     S.pul.treino = {inicio:agora(), fim:agora() + m * 60000, tolerFim:agora() + (m + t.tolerancia_min) * 60000};
     registrar('treino', S.nivel, `Modo Treino ativado por ${duracao(m)} (+${t.tolerancia_min} min de tolerância)`); store.gravar(); atualizarTreino(perfil());
   });
-  on('treinofim', () => { S.pul.treino = null; registrar('treino', S.nivel, 'Modo Treino encerrado pelo usuário'); store.gravar(); atualizarTreino(perfil()); });
+  on('treinofim', () => { S.pul.treino = null; registrar('treino', S.nivel, 'Modo Treino encerrado pela pessoa'); store.gravar(); atualizarTreino(perfil()); });
 }
 // ---------- aba Pulseira: monitoramento ao vivo; o serviço continua ao trocar de aba ----------
 function monitor(){ if (!S.pul.ativo) Pulseira.iniciar(); ir('pulseira'); }
@@ -775,7 +796,9 @@ function telaDemo(){
   <p class=aviso>Contagens curtas (check-in de segurança e ligação) aceleram no máximo 5x.</p>
   <div class=duas><button class=sec id=avancar15>Avançar 15 min</button><button class=sec id=avancardia>Avançar 1 dia</button></div>
   <label>Notificação diária às (h)<input id=notifh type=number min=0 max=23 value=${S.pul.notifH ?? R.sensor.notificacao_diaria_h}></label>
+  <label class=check><input type=checkbox id=sonosensor ${S.pul.sonoSensor ? 'checked' : ''}> <span>Pulseira indica que a pessoa está dormindo</span></label>
   <button class=big id=painel>Visão do profissional (CAPS)</button>`);
+  el('sonosensor').onchange = e => { S.pul.sonoSensor = e.target.checked; registrar('demo', S.nivel, e.target.checked ? 'Pulseira indica sono' : 'Pulseira indica acordado'); store.gravar(); };
   el('app').dataset.aba = 'demo';
   document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
     S.pul.cenario = b.dataset.c; S.pul.i = 0; Pulseira.acima = 0; if (b.dataset.c === 'crise_madrugada') irParaHora(3);
@@ -828,7 +851,7 @@ function emaQ(){
   if (E.pos >= E.itens.length) return fimEma();
   const q = E.itens[E.pos];
   telaPergunta(q, {alvo:'emacorpo', pos:E.pos, total:E.itens.length, rotulo:'Check-in', voltar:false,
-    extra:'<button class=sec id=naoconsigo>Não consigo responder agora</button>'},
+    extra:`${E.origem === 'check-in' ? `<button class=sec id=adiar>${esc(T.checkin_adiar)}</button>` : ''}<button class=sec id=naoconsigo>Não consigo responder agora</button>`},
     v => {
       if (v !== undefined) E.r[q.id] = v; E.pos++;
       // sinal vermelho na EMA (confusão, alucinação, respiração, se ferir) interrompe na hora, como na triagem
@@ -836,14 +859,23 @@ function emaQ(){
       emaQ();
     });
   on('naoconsigo', semResposta);
+  on('adiar', () => { S.pul.ultimaEma = agora() - Math.max(0, perfil().checkin - 60) * 60000; registrar('check-in', S.nivel, 'Check-in adiado em 1 h pela pessoa'); store.gravar(); fecharEma(); renderAba(); });
 }
 function fecharEma(){ E = null; el('ema').hidden = true; render('emacorpo', ''); barra(); }
 function fimEma(){
   if (!Object.keys(E.r).length) return semResposta();
   const antes = S.nivel;
-  S.ultimaEmaResp = E.r;
+  S.ultimaEmaResp = E.r; const fissura = E.r.q22 >= 7;
   aplicar(classificar(R.regras.concat(R.regras_ema), {...resp(), ...E.r}), 'check-in');
-  fecharEma(); posReclass(antes);
+  fecharEma(); if (fissura && S.nivel !== 'vermelho') return telaFissura(); posReclass(antes);
+}
+function telaFissura(){
+  tema('agitacao'); const F = T.fissura;
+  $(`<div class=acolhe id=fissura><h1>${esc(F.titulo)}</h1><p>${esc(F.texto)}</p><p><b>${esc(F.passo)}</b></p></div>
+  <button class=big id=fisresp>Respirar agora</button>
+  <p class=card>Falar com alguém: ${S.contato ? `${esc(S.contato.nome)} (••••${esc(S.contato.tel.slice(-4))}) ou ` : ''}CVV 188 (24 h, gratuito).</p>
+  <a class="btn big sec" href="tel:188">Ligar CVV 188</a><button class="big sec" id=fisvoltar>Voltar</button>`);
+  on('fisresp', () => ir('respirar')); on('fisvoltar', () => ir(S.aba));
 }
 function semResposta(){ // check-in agendado sem resposta = amarelo (contato do CAPS), nunca verde
   const antes = S.nivel;
@@ -858,13 +890,15 @@ function posReclass(antes){
 // ---------- consentimento, sessão ----------
 function consentimento(msg = ''){
   tema('normal');
-  $(`${msg}<h1>Pulso</h1>
+  const B = T.boas_vindas;
+  $(`${msg}<div class=acolhe><h1>${esc(B.titulo)}</h1>${B.frases.map(f => `<p>${esc(f)}</p>`).join('')}
+    <label>${esc(B.pergunta_nome)}<input id=nome maxlength=30 autocomplete=off></label></div>
   <div class=card><b>Classificação de risco, não é diagnóstico.</b> Ajuda a decidir quando procurar o CAPS AD, a UBS ou o SAMU. Todo resultado passa por revisão por profissional. Em emergência, ligue <b>192</b>.</div>
   <div class=card><b>Seus dados (LGPD, art. 11)</b><br>Vamos perguntar sobre uso de substâncias e saúde mental, que são dados sensíveis. Você pode pular qualquer pergunta. Não pedimos texto livre nem sua localização exata.</div>
   <label class="card check"><input type=checkbox id=salvar> <span>Guardar meus dados <b>só neste aparelho</b> até eu tocar em "Encerrar sessão". <small>Apenas para teste. Nada é enviado.</small></span></label>
   <button class=big id=aceito>Concordo e quero começar</button>
   <button class=sec id=recuso>Não concordo</button>`);
-  on('aceito', () => { S = novoEstado(); S.salvar = el('salvar').checked; el('app').dataset.sessao = 1; store.gravar(); barra(); triagem(); });
+  on('aceito', () => { const nome = el('nome').value.replace(/[^\p{L}\s'-]/gu, '').trim().slice(0, 30); S = novoEstado(); S.nome = nome; S.salvar = el('salvar').checked; el('app').dataset.sessao = 1; store.gravar(); barra(); triagem(); });
   on('recuso', () => $('<div class=card>Tudo bem. Se precisar, ligue 192 (SAMU) ou 188 (CVV).</div>'));
 }
 // refazer a triagem reaproveita o perfil (idade, sexo, região, moradia, contato) e a linha de base; a pulseira continua
@@ -891,8 +925,8 @@ function telaEncerrar(){
 }
 
 S = {pul:{t0Real:Date.now(), t0Sim:Date.now(), vel:1, desloc:0}}; // relógio provisório até carregar as regras
-fetch('rules.json').then(r => r.json()).then(j => {
-  R = j; S = novoEstado();
+Promise.all(['rules.json', 'textos.json'].map(f => fetch(f).then(r => r.json()))).then(([j, t]) => {
+  R = j; T = t; S = novoEstado();
   on('sos', pedirSos); on('sosSim', sos); on('sosNao', cancelarSos); on('engrenagem', () => S.etapa === 'resultado' ? ir('dados') : telaEncerrar());
   el('nav').innerHTML = ABAS.map(([k, i, l]) => `<button data-aba=${k}><span aria-hidden=true>${i}</span>${l}</button>`).join('');
   el('nav').querySelectorAll('[data-aba]').forEach(b => b.onclick = () => ir(b.dataset.aba));

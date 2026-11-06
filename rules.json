@@ -211,8 +211,12 @@
     "checkin_agendado": {
       "sono_inicio_h": 22,
       "sono_fim_h": 7,
-      "opcoes_profissional_min": [60, 120, 240, 480, 720, 1440],
-      "_nota": "Padrão: 1x/dia (leve), 2x/dia (próximo), 3x/dia (intensivo). Nenhum check-in AGENDADO no horário de sono (ajustável pelo paciente); o que vencer à noite fica para o fim do sono. Intervalo mais curto ou check-in de madrugada só por decisão do profissional que acompanha o caso (painel). O check-in de segurança por anomalia da pulseira continua valendo à noite (risco vital)."
+      "opcoes_profissional_min": [60, 120, 240, 360, 480, 720, 1440],
+      "minimo_padrao_min": 240,
+      "limite_diario": 3,
+      "intervalo_min_entre_prompts_min": 60,
+      "sensor_mult_vermelho": 1.5,
+      "_nota": "Padrão (propostos, NÃO validados): fase aguda de depressores a cada 6 h acordado; fase aguda de risco menor a cada 8 h; recuperação precoce 2x/dia; manutenção 1x/dia; nenhum perfil abaixo de 4 h sem plano do profissional. Limite de check-ins programados por dia e intervalo mínimo entre um prompt qualquer (inclusive o da pulseira) e o próximo check-in programado. Se a pulseira indicar sono, adia também fora da janela. À noite, desvio de sensor abaixo de sensor_mult_vermelho x limite vira registro e contato do CAPS/UBS de manhã, sem alarme; só desvio grave (vermelho) ou SOS acordam. Nenhum check-in AGENDADO no horário de sono (ajustável pelo paciente); o que vencer à noite fica para o fim do sono. Intervalo mais curto ou check-in de madrugada só por decisão do profissional que acompanha o caso (painel). O check-in de segurança por anomalia da pulseira continua valendo à noite (risco vital)."
     },
     "notificacao_diaria_h": 8
   },
@@ -233,9 +237,9 @@
     "_nota": "Regime pelo tempo desde o último uso (q12 + tempo de acompanhamento). Sem q12: agudo (lado seguro). Na recuperação, a atividade vem do reconhecimento de atividade (pulseira e/ou celular); a EMA pergunta sono, humor, fissura, uso e segurança.",
     "lista": [
       {"id":"agudo","nome":"Fase aguda","ate_h":168,"ajuste_intensidade":0},
-      {"id":"recuperacao","nome":"Recuperação precoce","ate_h":2016,"ajuste_intensidade":-1,
+      {"id":"recuperacao","nome":"Recuperação precoce","ate_h":2016,"ajuste_intensidade":-1,"checkin_min":720,
        "ema":["sono","humor","fissura","uso","ferir"],"foco":["sono","atividade","humor","fissura"]},
-      {"id":"manutencao","nome":"Manutenção","ate_h":null,"ajuste_intensidade":-1,
+      {"id":"manutencao","nome":"Manutenção","ate_h":null,"ajuste_intensidade":-1,"checkin_min":1440,
        "ema":["sono","humor","fissura","uso","ferir"],"foco":["sono","atividade","humor","fissura"]}
     ],
     "alto_risco_agudo": "Avaliação presencial recomendada. A pulseira não substitui atendimento médico.",
@@ -336,9 +340,9 @@
     "_nota": "Valores PROPOSTOS para o protótipo, NÃO validados clinicamente. Com várias substâncias vale a classe de maior intensidade. Qualquer modificador presente sobe a intensidade em um degrau (não acumula; teto = intensivo).",
     "classe_sem_informacao": "depressores",
     "intensidades": {
-      "leve":      {"ordem":0, "rotulo":"Acompanhamento leve",     "frase":"Acompanhamos de forma leve", "checkin_min":1440, "cooldown_min":120, "desvios_para_disparo":2.5, "sensibilidade":"baixa"},
-      "intenso":   {"ordem":1, "rotulo":"Acompanhamento próximo",  "frase":"Acompanhamos de perto",      "checkin_min":720, "cooldown_min":30,  "desvios_para_disparo":2.0, "sensibilidade":"média"},
-      "intensivo": {"ordem":2, "rotulo":"Acompanhamento intensivo","frase":"Acompanhamos bem de perto",  "checkin_min":480, "cooldown_min":15,  "desvios_para_disparo":1.8, "sensibilidade":"alta"}
+      "leve":      {"ordem":0, "rotulo":"Acompanhamento leve",     "frase":"Acompanhamos de forma leve", "checkin_min":480, "cooldown_min":120, "desvios_para_disparo":2.5, "sensibilidade":"baixa"},
+      "intenso":   {"ordem":1, "rotulo":"Acompanhamento próximo",  "frase":"Acompanhamos de perto",      "checkin_min":480, "cooldown_min":30,  "desvios_para_disparo":2.0, "sensibilidade":"média"},
+      "intensivo": {"ordem":2, "rotulo":"Acompanhamento intensivo","frase":"Acompanhamos bem de perto",  "checkin_min":360, "cooldown_min":15,  "desvios_para_disparo":1.8, "sensibilidade":"alta"}
     },
     "nomes_curtos": {"alcool":"o álcool","calmantes":"os calmantes","ghb":"o GHB","opioides":"os opioides","cocaina":"a cocaína","crack":"o crack","anfetaminas":"as anfetaminas","maconha":"a maconha","tabaco":"o cigarro","inalantes":"os inalantes","outra":"outra substância"},
     "classes": [
