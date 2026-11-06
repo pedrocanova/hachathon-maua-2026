@@ -798,3 +798,17 @@ def test_demo_escolher_cenario_de_novo_permite_novo_alerta(page):
     page.click("#estoubem")
     page.click("[data-c=estavel]"); page.click("[data-c=crise_repouso]")         # apresentação: disparar de novo
     expect(page.locator("#alerta")).to_be_visible(timeout=15000)
+
+
+def test_marcos_parabens_e_tempo_conquistado(page):
+    iniciar(page); responder(page, ALCOOL)                                         # último uso entre 1 e 3 dias (48 h)
+    expect(page.locator("#marco")).to_contain_text("Parabéns! 1 dia sem usar!")
+    expect(page.locator("#proxmarco")).to_contain_text("3 dias sem usar")
+    monitorar(page); demo(page); page.click("#avancardia")                         # chega a 72 h
+    page.wait_for_function("S.log.some(l => l.motivo.includes('Marco: 3 dias'))", timeout=5000)
+    expect(page.locator("#toast")).to_be_visible()
+    if page.locator("#ema").is_visible(): ema_benigna(page)
+    aba(page, "inicio"); page.click("#useidenovo"); page.click("#usosim")
+    expect(page.locator("#acolhe")).to_contain_text("Esse tempo é seu")
+    page.click("#voltarinicio")
+    expect(page.locator("#totalconq")).to_contain_text("3 dias")                   # recaída não zera o que foi conquistado

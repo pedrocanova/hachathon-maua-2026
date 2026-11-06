@@ -12,7 +12,11 @@
     ],
     "pergunta_nome": "Como você quer ser chamado(a)? (opcional)"
   },
-  "saudacao": {"manha": "Bom dia", "tarde": "Boa tarde", "noite": "Boa noite"},
+  "saudacao": {
+    "manha": "Bom dia",
+    "tarde": "Boa tarde",
+    "noite": "Boa noite"
+  },
   "transicoes": {
     "1": "Vamos começar com algumas informações sobre você.",
     "2": "Obrigado por contar. Agora, sobre o uso: isso ajuda a entender o que esperar nos próximos dias.",
@@ -36,5 +40,51 @@
   "passo_hoje": "Um passo pequeno para hoje",
   "noite_anomalia": "A pulseira notou uma pequena mudança durante o seu sono. Registramos sem acordar você; a equipe do CAPS AD ou da UBS pode entrar em contato pela manhã.",
   "checkin_adiar": "Lembrar em 1 hora",
-  "vazio": "Nada por aqui ainda. Tudo bem."
+  "vazio": "Nada por aqui ainda. Tudo bem.",
+  "marcos": {
+    "_nota": "Parabéns pelo tempo sem usar (horas desde o último uso). Sem placar de sequência, sem confete, sem sons. Nunca aparece nas telas de emergência. Recaída não zera o tempo conquistado.",
+    "antes": "Hoje é o seu dia 1. Cada hora conta, e você já começou.",
+    "lista": [
+      {
+        "h": 24,
+        "titulo": "1 dia sem usar!",
+        "texto": "Parabéns pelo seu primeiro dia! Cada hora conta, e você chegou até aqui."
+      },
+      {
+        "h": 72,
+        "titulo": "3 dias sem usar!",
+        "texto": "Parabéns! Você está mostrando muita força. Lembre de se cuidar: água, comida e descanso."
+      },
+      {
+        "h": 168,
+        "titulo": "1 semana sem usar!",
+        "texto": "Uma semana inteira. Parabéns pelo caminho que você está construindo."
+      },
+      {
+        "h": 336,
+        "titulo": "2 semanas sem usar!",
+        "texto": "Duas semanas. Que conquista! Você merece reconhecer o seu esforço."
+      },
+      {
+        "h": 720,
+        "titulo": "1 mês sem usar!",
+        "texto": "Um mês! Parabéns. Vale celebrar com quem apoia você."
+      },
+      {
+        "h": 1440,
+        "titulo": "2 meses sem usar!",
+        "texto": "Dois meses. Parabéns pela constância e pelo cuidado com você."
+      },
+      {
+        "h": 2160,
+        "titulo": "3 meses sem usar!",
+        "texto": "Três meses! Uma conquista enorme. Siga contando com a sua equipe."
+      }
+    ],
+    "proximo": "Próximo marco: {marco} (faltam {falta}).",
+    "total": "Ao todo, você já somou {tempo} sem usar. Esse tempo é seu.",
+    "aviso": "Parabéns: {titulo} Veja no Início."
+  },
+  "obrigado_checkin": "Obrigado por responder. Cuidar de você um pouco a cada dia faz diferença.",
+  "obrigado_triagem": "Obrigado por responder. Você já deu um passo importante."
 }

@@ -5,7 +5,7 @@
 const ORDEM = {verde:0, amarelo:1, vermelho:2};
 const ROTULO = {verde:'Risco baixo agora', amarelo:'Procure o CAPS AD ou a UBS em até 24 h', vermelho:'Busque ajuda agora'};
 const CHAVE = 'pulso_v2';
-const CAMPOS = ['nome','checkinProf','resp','contato','etapa','pos','nivel','motivos','info','log','base','pre','compFeito','tTriagem','revisao','pul','alertaId','locAlerta','locPrevia','telemetria','ultimaEmaResp','ultimoUso','aba','vistos','ultimaQ','avisos'];
+const CAMPOS = ['conquistadoH','marcoVisto','nome','checkinProf','resp','contato','etapa','pos','nivel','motivos','info','log','base','pre','compFeito','tTriagem','revisao','pul','alertaId','locAlerta','locPrevia','telemetria','ultimaEmaResp','ultimoUso','aba','vistos','ultimaQ','avisos'];
 const GPS_SIM = {lat:-23.5505, lon:-46.6333}; // coordenadas simuladas
 const FONTES = {pulseira:'pulseira', celular:'celular', ambos:'pulseira + celular'};
 const fonte = () => FONTES[S.pul.fonte || 'ambos'];
@@ -95,6 +95,22 @@ function textoSemUso(){
   const h = horasSemUso(); if (h === null) return 'Último uso não informado';
   const d = Math.floor(h / 24), hh = Math.floor(h % 24);
   return `${d} dia${d === 1 ? '' : 's'} e ${hh} hora${hh === 1 ? '' : 's'} sem usar`;
+}
+// marcos: parabéns pelo tempo sem usar; recaída não zera o que já foi conquistado
+const fmtH = h => { const d = Math.floor(h / 24), hh = Math.floor(h % 24); return d ? `${d} dia${d === 1 ? '' : 's'}${hh ? ` e ${hh} hora${hh === 1 ? '' : 's'}` : ''}` : `${hh} hora${hh === 1 ? '' : 's'}`; };
+const marcoAtual = h => h === null ? null : [...T.marcos.lista].reverse().find(m => h >= m.h) || null;
+const marcoProx = h => h === null ? null : T.marcos.lista.find(m => h < m.h) || null;
+function cartaoMarco(){
+  const h = horasSemUso(), M = T.marcos; if (h === null) return '';
+  const m = marcoAtual(h), px = marcoProx(h), total = (S.conquistadoH || 0) + h;
+  return `<div class="card acolhe" id=marco data-h=${m?.h ?? 0}>${m ? `<p class=destaque>Parabéns! ${esc(m.titulo)}</p><p>${esc(m.texto)}</p>` : `<p>${esc(M.antes)}</p>`}
+    ${px ? `<p class=aviso id=proxmarco>${esc(M.proximo.replace('{marco}', px.titulo.replace('!', '')).replace('{falta}', fmtH(px.h - h)))}</p>` : ''}
+    ${S.conquistadoH ? `<p id=totalconq>${esc(M.total.replace('{tempo}', fmtH(total)))}</p>` : ''}</div>`;
+}
+function verificarMarco(){
+  const m = marcoAtual(horasSemUso()); if (!m || m.h <= (S.marcoVisto || 0)) return;
+  S.marcoVisto = m.h; registrar('marco', S.nivel, `Marco: ${m.titulo}`); store.gravar();
+  toast(T.marcos.aviso.replace('{titulo}', m.titulo));
 }
 const comTempo = r => { const h = horasSemUso(); return h === null ? {...r} : {...r, h_sem_uso:h}; };
 const resp = () => { const b = comTempo(S.resp); return {...derivar(b).v, ...b}; };
@@ -203,8 +219,11 @@ function ligarCartao(raiz){
   raiz.querySelectorAll('[data-acao=ligar192]').forEach(b => b.onclick = ligacaoManual);
 }
 // notificação simulada: início do dia e mudança de fase
-function toast(t){ const e = el('toast'); e.textContent = t; e.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => e.hidden = true, 6000); registrar('notificação', S.nivel, t); }
+// avisos em fila: um não apaga o outro
+function toast(t){ registrar('notificação', S.nivel, t); (toast.fila ||= []).push(t); if (!toast.h) proxToast(); }
+function proxToast(){ const e = el('toast'), t = toast.fila.shift(); if (t === undefined){ e.hidden = true; toast.h = null; return; } e.textContent = t; e.hidden = false; toast.h = setTimeout(proxToast, 5000); }
 function verificarNotificacoes(pf){
+  if (S.nivel !== 'vermelho') verificarMarco();
   const d = new Date(agora()), dia = d.toDateString();
   if (d.getHours() >= (S.pul.notifH ?? R.sensor.notificacao_diaria_h) && S.pul.notifDia !== dia){ S.pul.notifDia = dia; toast('Bom dia. Veja o que esperar hoje no cartão "Hoje e nos próximos dias".'); }
   const chave = pf.regime.id + '|' + pf.cands.map(c => itemOrientacao(c.id, pf.horas)?.id).join(',');
@@ -298,7 +317,7 @@ function fimNucleo(){
   aplicar(res, 'triagem');
   S.etapa = 'resultado'; S.aba = 'inicio'; store.gravar();
   const novoVermelho = S.motivos.some(m => m.nivel === 'vermelho' && !S.vistos.includes(m.motivo));
-  novoVermelho ? telaVermelho(true, () => ir('inicio'), 'triagem') : ir('inicio');
+  novoVermelho ? telaVermelho(true, () => ir('inicio'), 'triagem') : (ir('inicio'), S.nivel !== 'vermelho' && toast(T.obrigado_triagem));
 }
 // tela de ajuda vinda da triagem: corrigir um toque errado ou continuar as perguntas
 function corrigirResposta(){
@@ -357,6 +376,7 @@ function inicio(){
   ${suic ? '<a class="btn big sec" href="tel:188">Conversar com o CVV 188 (24 h, gratuito)</a>' : ''}
   ${presencial ? '<p class=card id=presencial><b>Parar em casa, sem acompanhamento, não é indicado.</b> Procure avaliação presencial no CAPS AD, na UBS ou no pronto-socorro.</p>' : ''}
   ${pf.altoRisco ? `<p id=altorisco><b>${esc(R.regimes.alto_risco_agudo)}</b></p>` : ''}
+  ${n !== 'vermelho' ? cartaoMarco() : ''}
   <div class=card id=painelinicio>
     <p class=destaque><span id=semuso data-semuso>${textoSemUso()}</span></p>
     <p><span id=dia>Dia ${pf.dia} de acompanhamento · ${esc(pf.regime.nome)}</span><br><small id=fasetxt>${esc(pf.fase.texto)}</small></p>
@@ -370,7 +390,7 @@ function inicio(){
   <details class=card id=perfil data-perfil=${pf.classe.id} data-intensidade=${pf.intId} data-regime=${pf.regime.id}><summary><b>Seu acompanhamento: ${pf.int.rotulo.toLowerCase()}</b></summary><ul>${pf.motivos.map(m => `<li>${esc(m)}</li>`).join('')}</ul></details>
   ${nComp ? `<button class=sec id=comp>Responder ${nComp} perguntas complementares (opcional)</button>` : ''}
   <p class=aviso>Classificação de risco, não é diagnóstico.</p>`);
-  el('app').dataset.aba = 'inicio';
+  el('app').dataset.aba = 'inicio'; if (n !== 'vermelho') { S.marcoVisto = Math.max(S.marcoVisto || 0, marcoAtual(horasSemUso())?.h || 0); store.gravar(); }
   on('abrirajuda', () => telaVermelho(false, () => ir('inicio')));
   on('checkin', () => { if (!E) abrirEma('paciente'); });
   on('useidenovo', confirmarUso); on('corrigiruso', corrigirUso); on('comp', complementar);
@@ -380,23 +400,24 @@ function inicio(){
 function confirmarUso(){
   $(`<h1>Você usou de novo?</h1><div class=card><p>Tudo bem contar. Isso ajuda a ajustar o seu acompanhamento.</p></div>
   <button class=big id=usosim>Sim, usei</button><button class="big sec" id=usonao>Cancelar</button>`);
-  on('usosim', useiDeNovo); on('usonao', () => ir('inicio'));
+  el('app').dataset.aba = 'sub'; on('usosim', useiDeNovo); on('usonao', () => ir('inicio'));
 }
 function useiDeNovo(){
   const U = R.ultimo_uso.usei_de_novo, antes = horasSemUso(), antesTxt = textoSemUso();
   const opi = [].concat(S.resp.q7 || []).includes('opioides');
+  if (antes !== null) S.conquistadoH = (S.conquistadoH || 0) + antes; S.marcoVisto = 0;
   S.ultimoUso = {iso:new Date(agora()).toISOString(), faixa:'menos_6h', ajuste:null, fonte:'usei_de_novo'}; S.resp.q12 = 'menos_6h';
   registrar('paciente', S.nivel, `Contou que usou de novo (antes: ${antesTxt}). Contador reiniciado.`);
   if (antes !== null && antes >= U.amarelo_se_h_gte) aplicar({nivel:'amarelo', motivos:[{nivel:'amarelo', motivo:U.motivo_amarelo}]}, 'paciente');
   store.gravar();
   $(`<div class=acolhe id=acolhe><h1>${esc(T.recaida.acolhe)}</h1>
-    ${antes !== null ? `<p id=conquista>${esc(T.recaida.conquista.replace('{tempo}', antesTxt.replace(' sem usar', '')))}</p>` : ''}</div>
+    ${antes !== null ? `<p id=conquista>${esc(T.recaida.conquista.replace('{tempo}', antesTxt.replace(' sem usar', '')))}</p><p>${esc(T.marcos.total.replace('{tempo}', fmtH(S.conquistadoH)))}</p>` : ''}</div>
     ${opi ? `<p class=card id=tolerancia>${esc(U.opioides)}</p>` : ''}
     <p>${esc(T.recaida.opcoes)}</p>
     <a class="btn big" target=_blank rel=noopener href="${mapa('CAPS AD UBS')}">Falar com o CAPS AD ou a UBS</a>
     <button class="big sec" id=respirarrec>Respirar um pouco</button>
   <button class="big sec" id=voltarinicio>Voltar ao início</button>`);
-  on('voltarinicio', () => ir('inicio')); on('respirarrec', () => ir('respirar'));
+  el('app').dataset.aba = 'sub'; on('voltarinicio', () => ir('inicio')); on('respirarrec', () => ir('respirar'));
 }
 function corrigirUso(){
   const q = R.triagem.find(x => x.id === 'q12');
@@ -404,6 +425,7 @@ function corrigirUso(){
     if (v !== undefined){ S.resp.q12 = v; definirUltimoUso(v, extra, 'correcao'); registrar('paciente', S.nivel, `Último uso informado ou corrigido: ${textoSemUso()}`); store.gravar(); }
     ir('inicio');
   });
+  el('app').dataset.aba = 'sub';
 }
 function abaHoje(){
   const pf = perfil(), c = pf.classe;
@@ -875,7 +897,9 @@ function fimEma(){
   const antes = S.nivel;
   S.ultimaEmaResp = E.r; const fissura = E.r.q22 >= 7;
   aplicar(classificar(R.regras.concat(R.regras_ema), {...resp(), ...E.r}), 'check-in');
-  fecharEma(); if (fissura && S.nivel !== 'vermelho') return telaFissura(); posReclass(antes);
+  fecharEma(); if (fissura && S.nivel !== 'vermelho') return telaFissura();
+  if (S.nivel !== 'vermelho') toast(T.obrigado_checkin);
+  posReclass(antes);
 }
 function telaFissura(){
   tema('agitacao'); const F = T.fissura;
@@ -883,7 +907,7 @@ function telaFissura(){
   <button class=big id=fisresp>Respirar agora</button>
   <p class=card>Falar com alguém: ${S.contato ? `${esc(S.contato.nome)} (••••${esc(S.contato.tel.slice(-4))}) ou ` : ''}CVV 188 (24 h, gratuito).</p>
   <a class="btn big sec" href="tel:188">Ligar CVV 188</a><button class="big sec" id=fisvoltar>Voltar</button>`);
-  on('fisresp', () => ir('respirar')); on('fisvoltar', () => ir(S.aba));
+  el('app').dataset.aba = 'sub'; on('fisresp', () => ir('respirar')); on('fisvoltar', () => ir(S.aba));
 }
 function semResposta(){ // check-in agendado sem resposta = amarelo (contato do CAPS), nunca verde
   const antes = S.nivel;

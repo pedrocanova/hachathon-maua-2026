@@ -70,12 +70,12 @@ cadastro/triagem → perfil de risco → acompanhamento em **5 abas** (barra inf
 - **Resumo para revisão clínica** (tela imprimível + JSON) e **painel do CAPS** (níveis em vermelho/laranja, telemetria dos alertas, "Confirmar ou ajustar nível").
 
 ## Acolhimento
-Textos em `textos.json` (`revisao_clinica: pendente`): boas-vindas com nome, saudação, frases de transição na triagem, "um passo pequeno para hoje", recaída ("Obrigado por contar. Isso não apaga o que você já fez." + tempo conquistado), tela calma de fissura alta, reconhecimento pós-crise. Sem termos estigmatizantes (viciado, limpo/sujo, usuário, fracasso). Telas de emergência sem texto motivacional antes da ação.
+Textos em `textos.json` (`revisao_clinica: pendente`): boas-vindas com nome, saudação, frases de transição na triagem, "um passo pequeno para hoje", recaída ("Obrigado por contar. Isso não apaga o que você já fez." + tempo conquistado), tela calma de fissura alta, reconhecimento pós-crise, **marcos com parabéns** (1 dia, 3 dias, 1 semana, 2 semanas, 1, 2 e 3 meses sem usar; cartão no Início + aviso ao chegar; recaída não zera o tempo conquistado) e agradecimento após triagem e check-in. Sem termos estigmatizantes (viciado, limpo/sujo, usuário, fracasso). Telas de emergência sem texto motivacional antes da ação.
 
 ## Cores e acessibilidade
 Paletas do guia mantidas como **escolha de design para ambiente calmo, sem efeito fisiológico comprovado**. Só a cor do texto foi ajustada para contraste WCAG ≥ 4,5:1 (teste automático). O paciente nunca vê vermelho ou amarelo vibrantes.
 
 ## Próximos passos
-- **P1 não feito**: humor do dia em um toque (1x/dia após a janela de silêncio), "Meu motivo" exibido em momentos difíceis, marcos de progresso (24 h, 3 dias, 1 semana, 1 mês), cartão "Quem está com você", limite diário no plano do profissional, ilustrações SVG leves.
+- **P1 não feito**: humor do dia em um toque (1x/dia após a janela de silêncio), "Meu motivo" exibido em momentos difíceis, cartão "Quem está com você", limite diário no plano do profissional, ilustrações SVG leves.
 - **P2**: check-ins perdidos (1–2 ausências na fase aguda de alto risco = aviso amarelo à equipe em horário adequado); suíte completa de testes revisada para esta rodada (hoje: testes de fumaça + suíte anterior).
 - Revisão clínica de `rules.json` e `textos.json`; piloto com validação do sensor (ver [lacunas](docs/lacunas.md)).
