@@ -5,7 +5,7 @@
 const ORDEM = {verde:0, amarelo:1, vermelho:2};
 const ROTULO = {verde:'Risco baixo agora', amarelo:'Procure o CAPS AD ou a UBS em até 24 h', vermelho:'Busque ajuda agora'};
 const CHAVE = 'pulso_v2';
-const CAMPOS = ['resp','contato','etapa','pos','nivel','motivos','info','log','base','pre','compFeito','tTriagem','revisao','pul','alertaId','locAlerta','locPrevia','telemetria','ultimaEmaResp'];
+const CAMPOS = ['resp','contato','etapa','pos','nivel','motivos','info','log','base','pre','compFeito','tTriagem','revisao','pul','alertaId','locAlerta','locPrevia','telemetria','ultimaEmaResp','ultimoUso','aba','vistos','ultimaQ','avisos'];
 const GPS_SIM = {lat:-23.5505, lon:-46.6333}; // coordenadas simuladas
 const FONTES = {pulseira:'pulseira', celular:'celular', ambos:'pulseira + celular'};
 const fonte = () => FONTES[S.pul.fonte || 'ambos'];
@@ -16,6 +16,7 @@ function novoEstado(){
   const agoraReal = Date.now();
   const st = {salvar:false, resp:{}, contato:null, etapa:'nucleo', pos:0, nivel:null, motivos:[], info:[], log:[], base:null, pre:[], compFeito:false,
     tTriagem:null, revisao:{status:'pendente', nivel:null, obs:'', em:null}, alertaId:0, locAlerta:null, locPrevia:false, telemetria:[], ultimaEmaResp:{},
+    ultimoUso:null, aba:'inicio', vistos:[], ultimaQ:null, avisos:null,
     pul:{ativo:false, cenario:'estavel', con:'wifi', bateria:100, buffer:[], enviados:0, ultimaEma:null, ultimoAlerta:null, i:0,
       vel: URLP.has('rapido') ? 60 : [1, 5, 60].includes(+URLP.get('vel')) ? +URLP.get('vel') : 1,
       t0Real:agoraReal, t0Sim:agoraReal, desloc:0, ativManual:null, fonte:'ambos', silencioAte:null, treino:null, notifDia:null, faseKey:null}};
@@ -79,7 +80,20 @@ function derivar(r){
   }
   return {v, ocultas};
 }
-const resp = () => ({...derivar(S.resp).v, ...S.resp});
+// último uso: perguntado UMA vez (q12); o tempo sem usar é sempre agora − carimbo (sobrevive a recarregar e trocar de tela)
+const horasSemUso = () => S.ultimoUso ? Math.max(0, (agora() - Date.parse(S.ultimoUso.iso)) / 3600000) : null;
+function definirUltimoUso(faixa, ajuste, fonte){
+  const h = ajuste?.n > 0 ? ajuste.n * (ajuste.unidade === 'dias' ? 24 : 1) : R.ultimo_uso.horas_da_faixa[faixa];
+  if (h === undefined) return;
+  S.ultimoUso = {iso:new Date(agora() - h * 3600000).toISOString(), faixa, ajuste: ajuste?.n > 0 ? ajuste : null, fonte};
+}
+function textoSemUso(){
+  const h = horasSemUso(); if (h === null) return 'Último uso não informado';
+  const d = Math.floor(h / 24), hh = Math.floor(h % 24);
+  return `${d} dia${d === 1 ? '' : 's'} e ${hh} hora${hh === 1 ? '' : 's'} sem usar`;
+}
+const comTempo = r => { const h = horasSemUso(); return h === null ? {...r} : {...r, h_sem_uso:h}; };
+const resp = () => { const b = comTempo(S.resp); return {...derivar(b).v, ...b}; };
 function classificar(regras, r, obrig = []){
   let nivel = 'verde'; const motivos = [], info = [];
   for (const g of regras) if (cond(g.quando, r)) (g.nivel === 'info' ? info : motivos).push(g);
@@ -114,8 +128,7 @@ function perfil(){
   cands = [...cands].sort((a, b) => ord(b.intensidade) - ord(a.intensidade)); // maior risco primeiro
   const classe = cands[0];
   const mods = P.modificadores.filter(m => cond(m.quando, r));
-  const h0 = P.horas_desde_q12[r.q12];
-  const horas = h0 === undefined ? null : h0 + minDesde(S.tTriagem ?? agora()) / 60;
+  const horas = horasSemUso();
   const regime = horas === null ? R.regimes.lista[0] : R.regimes.lista.find(g => g.ate_h === null || horas < g.ate_h);
   const agudo = regime.id === 'agudo';
   const intId = porOrdem(Math.max(0, Math.min(ord(classe.intensidade) + (mods.length ? 1 : 0), 2) + regime.ajuste_intensidade));
@@ -180,7 +193,7 @@ function cartaoOrientacao(pf){
     <small>Fonte: ${esc(itens.map(x => x.it.fonte).join(' · '))}. Revisão clínica: pendente.</small></section>`;
 }
 function ligarCartao(raiz){
-  raiz.querySelectorAll('[data-acao=respirar]').forEach(b => b.onclick = respirar);
+  raiz.querySelectorAll('[data-acao=respirar]').forEach(b => b.onclick = () => ir('respirar'));
   raiz.querySelectorAll('[data-acao=ligar192]').forEach(b => b.onclick = ligacaoManual);
 }
 // notificação simulada: início do dia e mudança de fase
@@ -191,21 +204,21 @@ function verificarNotificacoes(pf){
   const chave = pf.regime.id + '|' + pf.cands.map(c => itemOrientacao(c.id, pf.horas)?.id).join(',');
   if (S.pul.faseKey && S.pul.faseKey !== chave){
     S.pul.faseKey = chave; toast(`Nova fase do acompanhamento: ${pf.fase.texto}. O cartão "Hoje e nos próximos dias" foi atualizado.`);
-    if (el('hud')) monitor();
+    renderAba();
   } else S.pul.faseKey = chave;
 }
 
 // ---------- perguntas ----------
 function faseDe(q, r){ return q.nucleo_se ? (cond(q.nucleo_se, r) ? 'nucleo' : 'complementar') : q.fase; }
 function visiveis(etapa){
-  const r = resp(), der = derivar(S.resp).v;
+  const r = resp(), der = derivar(comTempo(S.resp)).v;
   return R.triagem.filter(q => faseDe(q, r) === etapa && (!q.se || cond(q.se, r)) && !S.pre.includes(q.id) && der[q.id] === undefined);
 }
 function opcoes(q){
   if (q.tipo === 'simnao') return [{v:'sim', l:'Sim'}, {v:'nao', l:'Não'}];
   if (q.tipo === 'escala010') return [...Array(11).keys()].map(i => ({v:i, l:String(i)}));
   if (q.opcoes_de){ const src = R.triagem.find(x => x.id === q.opcoes_de), sel = [].concat(S.resp[q.opcoes_de] || []); return src.opcoes.filter(o => sel.includes(o.v)); }
-  const ocultas = q.ema ? [] : derivar(S.resp).ocultas[q.id] || [];
+  const ocultas = q.ema ? [] : derivar(comTempo(S.resp)).ocultas[q.id] || [];
   return (q.opcoes || []).filter(o => !ocultas.includes(o.v));
 }
 const botao = o => `<button class=op data-v='${esc(JSON.stringify(o.v))}' aria-pressed=false>${esc(o.l)}</button>`;
@@ -219,6 +232,9 @@ function telaPergunta(q, ctx, responder){
     <div class=opc><button class=op id=csim>Sim, salvar contato</button><button class=op id=cnao>Não tenho</button></div>`;
   else if (q.tipo === 'regiao') corpo = `<label>CEP (só os 5 primeiros números)<input id=cep inputmode=numeric maxlength=5></label>
     <label>ou bairro<input id=bairro maxlength=40 autocomplete=off></label><div class=opc><button class=op id=ok>Continuar</button></div>`;
+  else if (q.tipo === 'ultimo_uso') corpo = `<div class=ajuste><label>Se souber, há quantas<input id=ajn type=number inputmode=numeric min=1 max=999></label>
+    <label>horas ou dias?<select id=aju><option value=horas>horas</option><option value=dias>dias</option></select></label></div>
+    <div class=opc>${opcoes(q).map(botao).join('')}</div>`;
   else if (q.tipo === 'numero') corpo = `<input id=num type=number inputmode=numeric min=0 max=${q.max || 999}><div class=opc><button class=op id=ok>Continuar</button></div>`;
   else corpo = `<div class="opc${q.tipo === 'escala010' ? ' grade' : ''}">${opcoes(q).map(botao).join('')}</div>${q.tipo === 'multi' ? '<button class=big data-acao=continuar>Continuar</button>' : ''}`;
   render(alvo, `<div class=bar role=progressbar aria-valuemin=0 aria-valuemax=${ctx.total} aria-valuenow=${ctx.pos}><i style="width:${100 * ctx.pos / ctx.total}%"></i></div>
@@ -235,7 +251,8 @@ function telaPergunta(q, ctx, responder){
       if (ligar && q.exclusivo) ops.forEach(o => { if (o !== b && (v === q.exclusivo || JSON.parse(o.dataset.v) === q.exclusivo)) o.setAttribute('aria-pressed', false); });
     });
     f('[data-acao=continuar]').onclick = () => { const sel = ops.filter(marcado).map(b => JSON.parse(b.dataset.v)); responder(sel.length ? sel : undefined); };
-  } else ops.forEach(b => b.onclick = () => responder(JSON.parse(b.dataset.v)));
+  } else ops.forEach(b => b.onclick = () => responder(JSON.parse(b.dataset.v),
+    q.tipo === 'ultimo_uso' ? {n:Math.min(Math.max(parseInt(f('#ajn').value, 10) || 0, 0), 999), unidade:f('#aju').value} : undefined));
   if (f('#csim')) f('#csim').onclick = () => { const tel = f('#ctel').value.replace(/\D/g, ''); if (tel.length < 10 || tel.length > 11) return f('#cerro').hidden = false;
     responder('sim', {nome: f('#cnome').value.trim().slice(0, 30) || 'Contato', tel}); };
   if (f('#cnao')) f('#cnao').onclick = () => responder('nao');
@@ -258,20 +275,36 @@ function triagem(){
     (v, extra) => {
       if (v === undefined) delete S.resp[q.id]; else S.resp[q.id] = v;
       if (q.tipo === 'contato') S.contato = v === 'sim' ? extra : null;
-      S.pos++; store.gravar();
-      // critério vermelho interrompe o núcleo: vai direto para a tela de emergência
-      if (!comp && R.regras.some(g => g.nivel === 'vermelho' && cond(g.quando, resp()))) return fimNucleo();
+      if (q.tipo === 'ultimo_uso'){ S.ultimoUso = null; if (v !== undefined) definirUltimoUso(v, extra, 'triagem'); }
+      S.pos++; S.ultimaQ = q.id; store.gravar();
+      // critério vermelho NOVO interrompe o núcleo e vai para a tela de ajuda (sem ligar sozinho para o 192)
+      if (!comp && R.regras.some(g => g.nivel === 'vermelho' && !S.vistos.includes(g.motivo) && cond(g.quando, resp()))) return fimNucleo();
       triagem();
     });
   on('pulartudo', fimComplementar);
 }
 function fimNucleo(){
+  const fora = S.motivos.filter(m => m.nivel === 'vermelho' && !R.regras.some(g => g.motivo === m.motivo)); // ex.: SOS durante a triagem
   S.nivel = null; S.tTriagem = agora(); S.pul.ultimaEma = agora(); // o 1º check-in não repete o que acabou de ser respondido
-  aplicar(classificar(R.regras, resp(), R.obrigatorias_para_verde), 'triagem');
-  S.etapa = 'resultado'; store.gravar();
-  S.nivel === 'vermelho' ? telaVermelho(true, null, 'triagem') : resultado();
+  const res = classificar(R.regras, resp(), R.obrigatorias_para_verde);
+  if (fora.length){ res.nivel = 'vermelho'; res.motivos = fora.concat(res.motivos); }
+  aplicar(res, 'triagem');
+  S.etapa = 'resultado'; S.aba = 'inicio'; store.gravar();
+  const novoVermelho = S.motivos.some(m => m.nivel === 'vermelho' && !S.vistos.includes(m.motivo));
+  novoVermelho ? telaVermelho(true, () => ir('inicio'), 'triagem') : ir('inicio');
 }
-function fimComplementar(){ S.etapa = 'resultado'; S.compFeito = true; S.info = classificar(R.regras, resp()).info; store.gravar(); resultado(); }
+// tela de ajuda vinda da triagem: corrigir um toque errado ou continuar as perguntas
+function corrigirResposta(){
+  const q = S.ultimaQ; delete S.resp[q]; if (q === 'q12') S.ultimoUso = null;
+  S.etapa = 'nucleo'; S.nivel = null; S.motivos = [];
+  registrar('paciente', 'verde', `Corrigiu a resposta da pergunta ${q.slice(1)} (toque errado). O alerta anterior continua no histórico.`);
+  S.pos = Math.max(0, visiveis('nucleo').findIndex(x => x.id === q)); store.gravar(); triagem();
+}
+function continuarTriagem(){
+  S.vistos = [...new Set(S.vistos.concat(S.motivos.filter(m => m.nivel === 'vermelho').map(m => m.motivo)))];
+  S.etapa = 'nucleo'; store.gravar(); triagem();
+}
+function fimComplementar(){ S.etapa = 'resultado'; S.compFeito = true; S.info = classificar(R.regras, resp()).info; store.gravar(); ir('inicio'); }
 function complementar(){ S.etapa = 'complementar'; S.pos = 0; store.gravar(); triagem(); }
 
 // ---------- resultado ----------
@@ -289,60 +322,143 @@ const statusRevisao = () => S.revisao.status === 'revisado'
 function porque(){
   const ms = S.motivos.map(m => `<li>${esc(m.motivo)}${m.orientacao ? `<br><small>${esc(m.orientacao)}</small>` : ''}</li>`).join('') || '<li>Nenhum critério de alerta nas suas respostas.</li>';
   const info = S.info.map(m => `<li><b>${esc(m.motivo)}:</b> ${esc(m.orientacao)}</li>`).join('');
-  return `<details class=card id=porque open><summary><b>Por que esta orientação?</b></summary><ul>${ms}</ul>${info ? `<b>Informações para você</b><ul>${info}</ul>` : ''}</details>`;
+  return `<details class=card id=porque><summary><b>Por que esta orientação?</b></summary><ul>${ms}</ul>${info ? `<b>Informações para você</b><ul>${info}</ul>` : ''}</details>`;
 }
-function resultado(depoisDoSos){
-  if (S.nivel === 'vermelho' && depoisDoSos !== true) return telaVermelho(false); // cliques passam o evento: comparar com true
-  const n = S.nivel, suic = S.motivos.some(m => m.tag === 'suicidio'), pf = perfil();
-  tema(temaPaciente(n));
+// ---------- navegação por abas: uma função principal por tela ----------
+const ABAS = [['inicio', '⌂', 'Início'], ['pulseira', '♡', 'Pulseira'], ['respirar', '◯', 'Respirar'], ['hoje', '☼︎', 'Hoje'], ['apoio', '☎︎', 'Apoio']];
+const TELAS = {inicio:() => inicio(), pulseira:() => abaPulseira(), respirar:() => respirar(), hoje:() => abaHoje(), apoio:() => abaApoio(),
+  dados:() => abaDados(), demo:() => telaDemo(), painel:() => painel(), resumo:() => telaResumo()};
+function ir(aba){
+  if (S.etapa !== 'resultado') return triagem();
+  S.aba = TELAS[aba] ? aba : 'inicio'; document.body.dataset.modo = ''; voltarVermelho = null; clearInterval(window._ri);
+  store.gravar(); TELAS[S.aba](); barra();
+}
+const resultado = () => ir('inicio');
+const renderAba = () => { if (S.etapa === 'resultado' && document.body.dataset.modo !== 'alerta' && ['inicio', 'hoje', 'pulseira'].includes(S.aba) && el('app').dataset.aba === S.aba) TELAS[S.aba](); };
+const linhaPulseira = () => S.pul.ativo ? `Pulseira: monitorando · ${Math.round(Pulseira.fc.at(-1) || 0) || '–'} bpm · bateria ${Math.round(S.pul.bateria)}%` : 'Pulseira: parada (ligue na aba Pulseira)';
+function inicio(){
+  const n = S.nivel || 'verde', pf = perfil(), suic = S.motivos.some(m => m.tag === 'suicidio');
+  tema(temaPaciente(S.nivel));
+  const presencial = S.motivos.some(m => m.encaminhar === 'presencial');
   const nComp = S.compFeito ? 0 : visiveis('complementar').length;
-  const texto = n === 'vermelho'
-    ? '<p>Seu pedido de ajuda ficou registrado e a equipe vai ver. Se precisar de novo, toque em SOS.</p>'
-    : n === 'amarelo'
-    ? `<p>Seria bom falar com a equipe do CAPS AD ou da UBS em até 24 h. Neste protótipo, o serviço receberia um aviso para entrar em contato com você.</p><p>Se piorar, toque em SOS.</p>`
-    : '<p>Suas respostas não mostram sinais de alerta agora. Continue se cuidando: água, comida e sono.</p>';
   $(`<small>Classificação de risco</small><h1 id=nivel data-nivel=${n}>${ROTULO[n]}</h1>${statusRevisao()}
-  <div class=card>${texto}${pf.altoRisco ? `<p id=altorisco><b>${esc(R.regimes.alto_risco_agudo)}</b></p>` : ''}${suic ? '<p>Se quiser conversar agora: <a class="btn big" href="tel:188">CVV 188 (24 h, gratuito)</a></p>' : ''}
-    <a class="btn big sec" target=_blank rel=noopener href="${mapa('CAPS AD UBS')}">Ver CAPS AD / UBS mais próximos</a></div>
+  ${n === 'vermelho' ? '<button class=big id=abrirajuda>Abrir a tela de ajuda</button>' : ''}
+  ${suic ? '<a class="btn big sec" href="tel:188">Conversar com o CVV 188 (24 h, gratuito)</a>' : ''}
+  ${presencial ? '<p class=card id=presencial><b>Parar em casa, sem acompanhamento, não é indicado.</b> Procure avaliação presencial no CAPS AD, na UBS ou no pronto-socorro.</p>' : ''}
+  ${pf.altoRisco ? `<p id=altorisco><b>${esc(R.regimes.alto_risco_agudo)}</b></p>` : ''}
+  <div class=card id=painelinicio>
+    <p class=destaque><span id=semuso data-semuso>${textoSemUso()}</span></p>
+    <p><span id=dia>Dia ${pf.dia} de acompanhamento · ${esc(pf.regime.nome)}</span><br><small id=fasetxt>${esc(pf.fase.texto)}</small></p>
+    <p>Próximo check-in <b id=prox></b></p>
+    <p id=pulslinha>${linhaPulseira()}</p>
+  </div>
+  <button class=big id=checkin>Fazer check-in agora</button>
+  <div class=card id=treino></div>
+  <div class=duas><button class=sec id=useidenovo>Usei de novo</button><button class=sec id=corrigiruso>${S.ultimoUso ? 'Corrigir a data do último uso' : 'Informar o último uso'}</button></div>
   ${porque()}
-  <div class=card id=perfil data-perfil=${pf.classe.id} data-intensidade=${pf.intId} data-regime=${pf.regime.id}><b>Seu acompanhamento: ${pf.int.rotulo.toLowerCase()}</b><ul>${pf.motivos.map(m => `<li>${esc(m)}</li>`).join('')}</ul></div>
-  ${cartaoOrientacao(pf)}
-  <button class=big id=mon>${S.pul.ativo ? 'Ver acompanhamento' : 'Começar acompanhamento com a pulseira'}</button>
-  ${nComp ? `<button class="big sec" id=comp>Responder ${nComp} perguntas complementares (opcional)</button>` : ''}
-  <button class=sec id=respirar>Exercício de respiração</button>
-  <button class=sec id=resumo>Resumo para revisão clínica</button>
-  <button class=sec id=painel>Visão do profissional</button>
-  <button class=sec id=refazer>Refazer a triagem</button>
+  <details class=card id=perfil data-perfil=${pf.classe.id} data-intensidade=${pf.intId} data-regime=${pf.regime.id}><summary><b>Seu acompanhamento: ${pf.int.rotulo.toLowerCase()}</b></summary><ul>${pf.motivos.map(m => `<li>${esc(m)}</li>`).join('')}</ul></details>
+  ${nComp ? `<button class=sec id=comp>Responder ${nComp} perguntas complementares (opcional)</button>` : ''}
   <p class=aviso>Classificação de risco, não é diagnóstico.</p>`);
-  ligarCartao(el('app'));
-  on('comp', complementar); on('mon', monitor); on('respirar', respirar); on('painel', painel); on('resumo', () => telaResumo(resultado)); on('refazer', recomecar);
+  el('app').dataset.aba = 'inicio';
+  on('abrirajuda', () => telaVermelho(false, () => ir('inicio')));
+  on('checkin', () => { if (!E) abrirEma('paciente'); });
+  on('useidenovo', confirmarUso); on('corrigiruso', corrigirUso); on('comp', complementar);
+  atualizarTreino(pf); hud(pf, {fc:Math.round(Pulseira.fc.at(-1) || 0), mov:Pulseira.mov.at(-1) || 0});
 }
-// vermelho: tela única, sem escolha de serviço e sem exercício de respiração; novo alerta inicia o escalonamento
+// "Usei de novo": sem julgamento; reinicia o carimbo; nunca dispara vermelho sozinho
+function confirmarUso(){
+  $(`<h1>Você usou de novo?</h1><div class=card><p>Tudo bem contar. Isso ajuda a ajustar o seu acompanhamento.</p></div>
+  <button class=big id=usosim>Sim, usei</button><button class="big sec" id=usonao>Cancelar</button>`);
+  on('usosim', useiDeNovo); on('usonao', () => ir('inicio'));
+}
+function useiDeNovo(){
+  const U = R.ultimo_uso.usei_de_novo, antes = horasSemUso(), antesTxt = textoSemUso();
+  const opi = [].concat(S.resp.q7 || []).includes('opioides');
+  S.ultimoUso = {iso:new Date(agora()).toISOString(), faixa:'menos_6h', ajuste:null, fonte:'usei_de_novo'}; S.resp.q12 = 'menos_6h';
+  registrar('paciente', S.nivel, `Contou que usou de novo (antes: ${antesTxt}). Contador reiniciado.`);
+  if (antes !== null && antes >= U.amarelo_se_h_gte) aplicar({nivel:'amarelo', motivos:[{nivel:'amarelo', motivo:U.motivo_amarelo}]}, 'paciente');
+  store.gravar();
+  $(`<h1>Obrigado por contar</h1><div class=card id=acolhe><p>${esc(U.mensagem)}</p><p>${esc(U.oferta)}</p>
+    ${opi ? `<p id=tolerancia><b>${esc(U.opioides)}</b></p>` : ''}
+    <a class="btn big" target=_blank rel=noopener href="${mapa('CAPS AD UBS')}">CAPS AD / UBS mais próximos</a></div>
+  <button class="big sec" id=voltarinicio>Voltar ao início</button>`);
+  on('voltarinicio', () => ir('inicio'));
+}
+function corrigirUso(){
+  const q = R.triagem.find(x => x.id === 'q12');
+  telaPergunta(q, {pos:0, total:1, rotulo:'Último uso', voltar:() => ir('inicio')}, (v, extra) => {
+    if (v !== undefined){ S.resp.q12 = v; definirUltimoUso(v, extra, 'correcao'); registrar('paciente', S.nivel, `Último uso informado ou corrigido: ${textoSemUso()}`); store.gravar(); }
+    ir('inicio');
+  });
+}
+function abaHoje(){
+  const pf = perfil(), c = pf.classe;
+  tema(temaPaciente(S.nivel));
+  const conteudos = c.conteudos.map(k => R.conteudos[k]).map(x => `<p><b>${esc(x.titulo)}:</b> ${esc(x.texto)}</p>`).join('');
+  $(`${cartaoOrientacao(pf)}<details class=card id=foco><summary><b>${pf.riscoVital ? 'Fique atento(a) a' : 'Foco'}:</b> ${esc(pf.foco.join(', '))}</summary><ul>${c.psicoeducacao.map(p => `<li>${esc(p)}</li>`).join('')}</ul>${conteudos}</details>`);
+  el('app').dataset.aba = 'hoje'; ligarCartao(el('app'));
+}
+function abaApoio(){
+  tema(temaPaciente(S.nivel));
+  $(`<h1>Apoio</h1>
+  <div class=card><b>Perto de você${regiao() ? ` (${esc(regiao())})` : ''}</b>
+    <a class="btn big" id=mapacaps target=_blank rel=noopener href="${mapa('CAPS AD UBS')}">CAPS AD e UBS mais próximos</a>
+    <a class="btn big sec" target=_blank rel=noopener href="${mapa('ONG grupo de apoio dependência química')}">ONGs e grupos de apoio</a></div>
+  <div class=card id=contatoapoio><b>Contato de confiança</b><p>${S.contato ? `${esc(S.contato.nome)} (••••${esc(S.contato.tel.slice(-4))})` : 'Nenhum cadastrado. Dá para cadastrar ao refazer a triagem (Perfil e dados).'}</p></div>
+  <div class=card><b>Telefones</b><button class="big sec" id=samu>SAMU 192 (emergência)</button><a class="btn big sec" href="tel:188">CVV 188 (conversar, 24 h, gratuito)</a></div>`);
+  el('app').dataset.aba = 'apoio'; on('samu', ligacaoManual);
+}
+function abaDados(){
+  tema('normal');
+  $(`<h1>Perfil e dados</h1>
+  <div class=card><b>Consentimentos</b><p>${S.salvar ? 'Seus dados ficam só neste aparelho, até você encerrar a sessão.' : 'Seus dados não estão sendo guardados: somem ao fechar.'}</p>
+    <label class=check><input type=checkbox id=locprevia ${S.locPrevia ? 'checked' : ''}> <span>Em alerta vermelho, já compartilhar minha localização com meu contato e o CAPS (consentimento separado; pode desligar quando quiser).</span></label></div>
+  <button class=big id=resumo>Resumo para revisão clínica</button>
+  <button class=sec id=refazer>Refazer a triagem</button>
+  <button class=sec id=encerrar>Encerrar sessão e apagar dados</button>
+  <button class=sec id=abrirdemo>Modo demonstração</button>`);
+  el('app').dataset.aba = 'dados';
+  el('locprevia').onchange = e => { S.locPrevia = e.target.checked; registrar('paciente', S.nivel, S.locPrevia ? 'Consentiu compartilhar localização em alertas vermelhos' : 'Retirou o consentimento de localização em alertas'); store.gravar(); };
+  on('resumo', () => ir('resumo')); on('refazer', recomecar); on('encerrar', telaEncerrar); on('abrirdemo', () => ir('demo'));
+}
+// vermelho: tela inteira (esconde a navegação), sem exercício de respiração. A ligação ao 192 depende da origem (rules.json/sensor.escalonamento.por_origem)
 let voltarVermelho = null;
 function telaVermelho(novoAlerta, voltar, origem = 'alerta'){
-  if (novoAlerta){ S.alertaId++; store.gravar(); }
-  voltarVermelho = voltar || (S.pul.ativo ? monitor : null);
+  if (novoAlerta){ S.alertaId++; store.gravar(); escalar(origem); }
+  voltarVermelho = voltar || (() => ir(S.aba));
+  document.body.dataset.modo = 'alerta'; el('app').dataset.aba = ''; barra();
   tema('crise');
   const suic = S.motivos.some(m => m.tag === 'suicidio'), locOk = S.locAlerta === S.alertaId;
+  const tri = S.avisos?.alertaId === S.alertaId && S.avisos.origem === 'triagem' && S.ultimaQ;
+  const resta = tri && S.pos < visiveis('nucleo').length;
   $(`<h1 id=nivel data-nivel=vermelho>Busque ajuda agora</h1>
-  <div class=card><p>Você não está sozinho(a). O que você contou precisa de atendimento agora.</p>
+  <div class=card><p>Você não está sozinho(a). O que você contou precisa de atenção agora.</p>
     <button class=big id=samu>Ligar SAMU 192</button>
     ${suic ? '<a class="btn big" id=cvv href="tel:188">Ligar CVV 188 (24 h, gratuito)</a>' : ''}
     <a class="btn big sec" id=upa target=_blank rel=noopener href="${mapa('UPA pronto-socorro')}">UPA / pronto-socorro mais próximo (abre rota)</a>
-    <button class="big sec" id=avisar>Avisar meu contato de confiança</button><div id=avisado aria-live=polite></div>
     <p class=aviso>Fique perto de alguém. Não use mais nenhuma substância agora. Se alguém estiver desacordado ou respirando devagar, deite a pessoa de lado e ligue 192.</p></div>
+  ${avisosHtml()}
+  ${tri ? `<div class=card id=revertriagem><button class=sec id=corrigirresp>Toquei errado: voltar à pergunta</button>${resta ? '<button class=sec id=continuartriagem>Continuar as perguntas</button>' : ''}</div>` : ''}
   <div class=card id=locbox>${locOk || S.locPrevia ? locTexto()
     : `<b>Compartilhar sua localização?</b><p class=aviso>Só neste alerta, com o seu contato de confiança e o CAPS. Fora de alertas, a localização nunca é compartilhada. O SAMU 192 recebe só a ligação de voz.</p>
        <button id=locsim>Sim, compartilhar neste alerta</button><button class=sec id=locnao>Agora não</button>`}</div>
   ${porque()}${statusRevisao()}
-  ${voltarVermelho ? '<button class="big sec" id=voltarajuda>Voltar</button>' : ''}
-  <button class=sec id=painel>Visão do profissional (demonstração)</button>`);
-  on('painel', painel); on('samu', ligacaoManual);
-  on('voltarajuda', () => { registrar('paciente', S.nivel, 'Saiu da tela de ajuda (o alerta continua registrado)'); store.gravar(); voltarVermelho(); });
+  <button class="big sec" id=voltarajuda>Voltar</button>`);
+  on('samu', ligacaoManual); ligarAvisos(); on('corrigirresp', corrigirResposta); on('continuartriagem', continuarTriagem);
+  on('voltarajuda', () => { registrar('paciente', S.nivel, 'Saiu da tela de ajuda (o alerta continua registrado)'); store.gravar(); const v = voltarVermelho; voltarVermelho = null; document.body.dataset.modo = ''; v(); barra(); });
   on('locsim', () => { S.locAlerta = S.alertaId; registrar('paciente', 'vermelho', 'Localização compartilhada neste alerta (consentimento)'); store.gravar(); el('locbox').innerHTML = locTexto(); });
   on('locnao', () => { el('locbox').innerHTML = '<p class=aviso>Tudo bem. Sua localização não foi compartilhada.</p>'; });
-  on('avisar', () => { el('avisado').innerHTML = `<div class=card>${mensagemContato(telemetria('manual'))}</div>`; registrar('contato', 'vermelho', 'Aviso ao contato de confiança (simulado)'); store.gravar(); });
-  if (novoAlerta) escalar(origem);
+}
+function avisosHtml(){
+  const a = S.avisos; if (!a || a.alertaId !== S.alertaId) return '';
+  const c = a.contato === 'avisado' ? `<li class=feito id=av-contato>Seu contato de confiança foi avisado.<div class=aviso>${mensagemContato(a.tel)}</div></li>`
+    : a.contato === 'oferecido' ? `<li class=pendente id=av-contato>Seu contato ainda não foi avisado. <button class=sec id=avisar>Avisar ${esc(S.contato?.nome || 'meu contato')}</button></li>`
+    : '<li class=pendente id=av-contato>Sem contato de confiança cadastrado.</li>';
+  return `<div class=card id=avisos><b>O que já foi feito</b><ol class=tl><li class=feito id=av-caps>O painel do CAPS recebeu o alerta (simulado).</li>${c}
+    <li class=pendente id=av-192>${a.ligacao === 'contagem' ? 'Ligação ao SAMU 192 em contagem, com opção de cancelar.' : 'O SAMU 192 só é chamado se você tocar em "Ligar SAMU 192".'}</li></ol></div>`;
+}
+function ligarAvisos(){
+  on('avisar', () => { S.avisos.contato = 'avisado'; registrar('contato', 'vermelho', 'Aviso ao contato de confiança (simulado, a pedido do paciente)'); store.gravar(); el('avisos').outerHTML = avisosHtml(); ligarAvisos(); });
 }
 const coords = () => `${GPS_SIM.lat.toFixed(4)}, ${GPS_SIM.lon.toFixed(4)}`;
 const locTexto = () => `<p id=loc><b>Localização compartilhada neste alerta (simulada, GPS: ${fonte()}):</b> ${coords()}</p>`;
@@ -361,12 +477,16 @@ function mensagemContato(tel){
     “Pulso: alerta vermelho às ${esc(tel.t)}${regiao() ? ', região ' + esc(regiao()) : ''}. FC recente: ${tel.fc.length ? tel.fc.join(', ') + ' bpm' : 'sem leituras'}; tremor: ${tel.tremor ?? '–'}; acompanhamento: ${esc(tel.perfil)}; localização: ${tel.coords || 'não compartilhada'}. Por favor, entre em contato agora.”`;
 }
 function escalar(origem){
-  if (ESC && ESC.estado === 'contagem') return;
+  const cfg = R.sensor.escalonamento.por_origem[origem] || {contato:'oferecer', ligacao:'botao'};
   const tel = telemetria(origem);
   S.telemetria.unshift(tel); S.telemetria = S.telemetria.slice(0, 20);
+  const contato = !S.contato ? 'sem' : cfg.contato === 'automatico' ? 'avisado' : 'oferecido';
+  S.avisos = {alertaId:S.alertaId, origem, contato, ligacao:cfg.ligacao, tel};
+  registrar('escalonamento', 'vermelho', `Alerta (${origem}): painel do CAPS avisado${contato === 'avisado' ? ' e contato de confiança avisado' : ''}; SAMU 192 ${cfg.ligacao === 'contagem' ? 'em contagem, com "Cancelar"' : 'só se a pessoa tocar em "Ligar"'}`);
+  store.gravar();
+  if (cfg.ligacao !== 'contagem' || (ESC && ESC.estado === 'contagem')) return;
   ESC = {origem, inicio:Date.now(), estado:'contagem', tel};
-  registrar('escalonamento', 'vermelho', `Protocolo iniciado (${origem}): contato e CAPS avisados em paralelo; ligação ao 192 em contagem`);
-  store.gravar(); desenharEscala(); clearInterval(escalar.t); escalar.t = setInterval(tickEscala, 150);
+  desenharEscala(); clearInterval(escalar.t); escalar.t = setInterval(tickEscala, 150);
 }
 const restanteLig = () => R.sensor.escalonamento.contagem_ligacao_s - (Date.now() - ESC.inicio) / 1000 * escalaCurta();
 function tickEscala(){
@@ -377,9 +497,9 @@ function tickEscala(){
 function ligacaoManual(){ if (ESC?.estado === 'contagem') return ligar192('confirmada pelo paciente'); clearInterval(escalar.t); ESC = {origem:'manual', estado:'confirmar', inicio:Date.now()}; desenharEscala(); }
 function ligar192(como){ clearInterval(escalar.t); ESC.estado = 'ligando'; registrar('escalonamento', 'vermelho', `Ligação ao SAMU 192 (simulada, ${como}). O 192 recebe só voz.`); store.gravar(); desenharEscala(); }
 function cancelarLigacao(){ clearInterval(escalar.t); ESC.estado = 'cancelada'; registrar('escalonamento', 'vermelho', 'Ligação ao 192 cancelada pelo paciente (estou bem); o alerta continua registrado'); store.gravar(); desenharEscala(); }
-function fecharEscala(){ clearInterval(escalar.t); ESC = null; el('escala').hidden = true; render('escala', ''); }
+function fecharEscala(){ clearInterval(escalar.t); ESC = null; el('escala').hidden = true; render('escala', ''); barra(); }
 function desenharEscala(){
-  const e = el('escala'); e.hidden = false; e.dataset.estado = ESC.estado;
+  const e = el('escala'); e.hidden = false; e.dataset.estado = ESC.estado; barra();
   const t192 = {contagem:`Ligação para o SAMU 192 em <b id=esccont>${Math.ceil(restanteLig())} s</b> (simulada).`, ligando:'Ligação para o SAMU 192 feita (simulada).',
     cancelada:'Ligação para o SAMU 192 cancelada por você.', confirmar:''}[ESC.estado];
   if (ESC.estado === 'confirmar') return render('escala', `<div class=tela><h1>Ligar para o SAMU 192?</h1><p>Ligação simulada nesta demonstração. O 192 recebe só a sua voz.</p>
@@ -399,28 +519,23 @@ function desenharEscala(){
 
 // ---------- SOS: confirmação na barra (some sozinha em 10 s) ----------
 let sosTimer = null;
-function pedirSos(){ el('sos').hidden = true; el('sosconf').hidden = false; clearTimeout(sosTimer); sosTimer = setTimeout(cancelarSos, 10000); }
-function cancelarSos(){ clearTimeout(sosTimer); el('sos').hidden = false; el('sosconf').hidden = true; }
-function telaAtual(){ // para onde o "Voltar" da tela de ajuda leva
-  if (el('hud')) return monitor;
-  if (el('app').querySelector('section[data-q]')) return triagem;
-  if (el('profok')) return painel;
-  if (el('perfil')) return () => resultado(true);
-  return S.pul.ativo ? monitor : S.etapa === 'resultado' ? () => resultado(true) : triagem;
-}
+function pedirSos(){ el('sos').hidden = el('engrenagem').hidden = true; el('sosconf').hidden = false; clearTimeout(sosTimer); sosTimer = setTimeout(cancelarSos, 10000); }
+function cancelarSos(){ clearTimeout(sosTimer); el('sos').hidden = el('engrenagem').hidden = false; el('sosconf').hidden = true; }
+function telaAtual(){ return S.etapa === 'resultado' ? (() => ir(S.aba)) : triagem; } // para onde o "Voltar" da tela de ajuda leva
 function crise(motivo, origem){
-  const voltar = el('app').querySelector('#samu') ? voltarVermelho : telaAtual();
+  const voltar = document.body.dataset.modo === 'alerta' && voltarVermelho ? voltarVermelho : telaAtual();
+  S.vistos = [...new Set(S.vistos.concat(motivo))]; // o SOS na triagem não some ao terminar as perguntas
   aplicar({nivel:'vermelho', motivos:[{nivel:'vermelho', motivo}]}, origem);
   fecharEma(); fecharAlerta(); telaVermelho(true, voltar, origem);
 }
 function sos(){ cancelarSos(); crise('Você pediu ajuda pelo botão SOS.', 'SOS'); }
 function respirar(){
+  tema(temaPaciente(S.nivel));
   $(`<h1>Respire com o círculo</h1><div id=resp></div>
-  <p style="text-align:center" id=fase aria-live=polite>Inspire…</p><p class=aviso>4 segundos para inspirar, 6 para soltar o ar.</p>
-  <button class=big id=voltar>Voltar</button>`);
+  <p class=destaque style="text-align:center" id=fase aria-live=polite>Inspire…</p><p class=aviso style="text-align:center">4 segundos para inspirar, 6 para soltar o ar.</p>`);
+  el('app').dataset.aba = 'respirar';
   let t = 0; clearInterval(window._ri);
   window._ri = setInterval(() => { const e = el('fase'); if (!e) return clearInterval(window._ri); t = (t + 1) % 10; e.textContent = t < 4 ? 'Inspire…' : 'Solte o ar devagar…'; }, 1000);
-  on('voltar', () => S.pul.ativo ? monitor() : resultado());
 }
 
 // ---------- resumo para revisão clínica ----------
@@ -431,11 +546,12 @@ function resumo(){
     status_revisao:S.revisao.status, revisao:S.revisao, nivel:S.nivel,
     perfil:{classe:pf.classe.id, intensidade:pf.intId, regime:pf.regime.id, dia_acompanhamento:pf.dia, modificadores:pf.mods.map(m => m.motivo), fase:pf.fase.texto,
       horas_desde_ultimo_uso_estimadas: pf.horas === null ? null : Math.round(pf.horas), checkin_min:pf.int.checkin_min},
-    substancias:rotuloOpcao('q7', r.q7), ultima_dose:rotuloOpcao('q12', r.q12)[0] ?? null, idade:rotuloOpcao('q1', r.q1)[0] ?? null,
+    substancias:rotuloOpcao('q7', r.q7), ultima_dose:rotuloOpcao('q12', r.q12)[0] ?? null,
+    ultimo_uso: S.ultimoUso ? {...S.ultimoUso, tempo_sem_usar:textoSemUso()} : null, idade:rotuloOpcao('q1', r.q1)[0] ?? null,
     criterios:S.motivos.map(m => ({nivel:m.nivel, motivo:m.motivo})), orientacoes:S.info.map(m => m.motivo),
     contato_de_confianca: S.contato ? 'cadastrado' : 'não cadastrado', alertas_telemetria:S.telemetria, historico:S.log, respostas:r};
 }
-function telaResumo(voltar){
+function telaResumo(voltar = () => ir('dados')){
   tema('normal');
   const o = resumo(), json = JSON.stringify(o, null, 2);
   $(`<h1>Resumo para revisão clínica</h1><p class=aviso>Classificação de risco, não é diagnóstico. Status: <b id=status>${o.status_revisao === 'pendente' ? 'pendente de revisão' : 'revisado'}</b></p>
@@ -467,14 +583,14 @@ function painel(){
     <label>Observação curta<input id=profobs maxlength=140 autocomplete=off></label>
     <button id=profok>Confirmar ou ajustar nível</button><p id=profmsg class=aviso aria-live=polite></p></div>
   <div class=log>${S.log.map(l => `${esc(l.t)} [${esc(l.origem)}] <span class="chip ${l.nivel}">${l.nivel}</span> ${esc(l.motivo)}`).join('<br>') || 'Sem registros'}</div>
-  <button class=sec id=resumo>Resumo para revisão clínica</button><button class=big id=voltar>Voltar</button>`);
+  <button class=sec id=resumo>Resumo para revisão clínica</button><button class=big id=voltar>Voltar ao modo demonstração</button>`);
   on('profok', () => {
     const novo = el('profnivel').value, obs = el('profobs').value.trim().slice(0, 140), acao = novo === S.nivel ? 'confirmado' : 'ajustado';
     aplicar({nivel:novo, motivos:[{nivel:novo, motivo:`Nível ${acao} por profissional${obs ? ': ' + obs : ''}.`}, ...S.motivos]}, 'profissional');
     S.revisao = {status:'revisado', nivel:novo, obs, em:hora()}; store.gravar(); painel();
   });
   on('resumo', () => telaResumo(painel));
-  on('voltar', () => S.pul.ativo ? monitor() : resultado(true));
+  on('voltar', () => ir('demo'));
 }
 
 // ---------- pulseira simulada: serviço independente das telas ----------
@@ -559,23 +675,20 @@ const Pulseira = {
 const podeEma = () => !E && !AL && !ESC && S.etapa === 'resultado';
 const podeAlerta = () => !AL && !ESC && S.etapa === 'resultado';
 function barra(){
-  el('barra').hidden = !el('app').dataset.sessao; // SOS e "Encerrar sessão" sempre visíveis durante a sessão
-  el('monwrap').hidden = !S.pul.ativo;
-  if (!S.pul.ativo){ el('parconf').hidden = true; el('parar').hidden = false; } // não fecha a confirmação de "Parar" se um check-in abrir
-  el('monst').textContent = E ? 'Monitorando… (check-in aberto)' : 'Monitorando…';
+  const sessao = !!el('app').dataset.sessao, alerta = document.body.dataset.modo === 'alerta';
+  el('topo').hidden = !sessao; // SOS sempre visível durante a sessão
+  el('nav').hidden = !sessao || S.etapa !== 'resultado' || alerta || !!E || !!AL || !!ESC; // alerta e check-in tomam a tela inteira
+  el('nav').querySelectorAll('[data-aba]').forEach(b => b.setAttribute('aria-current', b.dataset.aba === S.aba && !alerta ? 'page' : 'false'));
 }
 function hud(pf, l){
-  if (!el('hud')) return;
   const prox = Math.max(0, pf.int.checkin_min - minDesde(S.pul.ultimaEma)), a = Pulseira.atividade;
   const set = (id, t) => { const e = el(id); if (e) e.textContent = t; };
-  set('fc', l.fc); set('mov', (+l.mov).toFixed(2)); set('st', Pulseira.txt); set('n', Pulseira.n); el('hud').dataset.n = Pulseira.n;
+  set('fc', l.fc); set('mov', (+l.mov).toFixed(2)); set('st', Pulseira.txt); set('n', Pulseira.n); if (el('hud')) el('hud').dataset.n = Pulseira.n;
   set('fontegps', fonte()); set('fonteativ', fonte()); set('con', CONEXOES[S.pul.con]); set('bat', Math.round(S.pul.bateria) + '%');
   set('ativ', `${ATIVIDADES[a.ativ]}${a.cad ? ` · ${Math.round(a.cad)} passos/min${a.cv <= R.sensor.atividade.variacao_max_cadencia ? ', ritmado' : ''}` : ''}${a.vel ? ` · ${a.vel} km/h (GPS)` : ''}`);
   set('buf', S.pul.con === 'offline' ? `${S.pul.buffer.length} leituras guardadas (envio ao reconectar)` : Pulseira.aviso || `${S.pul.enviados} leituras enviadas`);
   set('prox', E ? 'agora' : `em ${duracao(prox)}`); set('fasetxt', pf.fase.texto); set('relogio', new Date(agora()).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}));
-  set('desde', pf.horas === null ? 'Último uso não informado' : `Cerca de ${duracao(pf.horas * 60)} desde o último uso`);
-  set('dia', `Dia ${pf.dia} de acompanhamento · ${pf.regime.nome}`);
-  set('nivelmon', ROTULO[S.nivel || 'verde']); el('nivelmon').dataset.nivel = S.nivel || 'verde';
+  set('dia', `Dia ${pf.dia} de acompanhamento · ${pf.regime.nome}`); set('pulslinha', linhaPulseira());
   if (treinoAtivo()) atualizarTreino(pf);
   desenhar();
 }
@@ -607,43 +720,45 @@ function atualizarTreino(pf){
   });
   on('treinofim', () => { S.pul.treino = null; registrar('treino', S.nivel, 'Modo Treino encerrado pelo usuário'); store.gravar(); atualizarTreino(perfil()); });
 }
-// ---------- tela de monitoramento: personalizada pelo perfil e pelo regime ----------
-function monitor(){
-  if (!S.pul.ativo) Pulseira.iniciar();
-  const pf = perfil(), c = pf.classe;
+// ---------- aba Pulseira: monitoramento ao vivo; o serviço continua ao trocar de aba ----------
+function monitor(){ if (!S.pul.ativo) Pulseira.iniciar(); ir('pulseira'); }
+function abaPulseira(){
+  const pf = perfil(), c = pf.classe, at = S.pul.ativo;
   tema(temaPaciente(S.nivel));
-  const conteudos = c.conteudos.map(k => R.conteudos[k]).map(x => `<p><b>${esc(x.titulo)}:</b> ${esc(x.texto)}</p>`).join('');
-  $(`<h1>Acompanhamento</h1>
+  const hist = S.log.filter(l => ['pulseira', 'filtro', 'treino', 'check-in'].includes(l.origem)).slice(0, 5);
+  $(`<h1>Pulseira</h1>
   <div class=card id=hud data-perfil=${c.id} data-intensidade=${pf.intId} data-checkin=${pf.int.checkin_min} data-risco-vital=${pf.riscoVital} data-regime=${pf.regime.id}>
-    <small>Classificação de risco atual</small><p class=destaque id=nivelmon data-nivel=${S.nivel || 'verde'}>${ROTULO[S.nivel || 'verde']}</p>
-    ${pf.altoRisco ? `<p id=altorisco><b>${esc(R.regimes.alto_risco_agudo)}</b></p>` : ''}
-    <p><b id=dia></b><br><span id=desde></span><br><span id=fasetxt></span></p>
-    <p><b>${esc(pf.int.rotulo)}</b> · próximo check-in <b id=prox></b> <span id=intervalo>(a cada ${duracao(pf.int.checkin_min)})</span></p>
-    <details><summary>Por que este acompanhamento?</summary><ul id=motivosperfil>${pf.motivos.map(m => `<li>${esc(m)}</li>`).join('')}</ul></details>
+    <p class=destaque id=pulsestado>${at ? 'Monitorando' : 'Parada'}</p>
+    ${at ? `<button class="big sec" id=parar>Parar o monitoramento</button><div id=parconf hidden><b>Parar o monitoramento?</b><div class=duas><button id=parSim>Sim, parar</button><button class=sec id=parNao>Continuar</button></div></div>`
+         : '<button class=big id=mon>Começar o monitoramento</button>'}
   </div>
   <div class="card vivo"><div><small>Frequência cardíaca</small><b class=num><span id=fc>–</span> bpm</b></div><div><small>Movimento / tremor</small><b class=num id=mov>–</b></div>
-    <canvas id=cv width=500 height=120 aria-label="Gráfico da frequência cardíaca"></canvas><p class=aviso id=st aria-live=polite></p><small>Leituras nesta sessão: <span id=n>0</span> · hora: <span id=relogio></span></small></div>
-  <div class=card id=treino></div>
-  <div class=card id=disp><b>Pulseira (Bluetooth)</b>: conectada · bateria <span id=bat></span> · vibração pronta<br>
-    <b>Celular</b>: <span id=con></span><br>
-    Atividade (<span id=fonteativ></span>): <span id=ativ></span><br>
-    GPS (<span id=fontegps></span>): <span id=gps>ativo · localização não compartilhada (só em alerta vermelho ou SOS, com sua permissão)</span><br><small id=buf></small>
-    <label class=check><input type=checkbox id=locprevia ${S.locPrevia ? 'checked' : ''}> <span>Em alerta vermelho, já compartilhar minha localização com meu contato e o CAPS (consentimento separado; pode desligar quando quiser).</span></label></div>
-  ${cartaoOrientacao(pf)}
-  <div class=card id=foco><b>${pf.riscoVital ? 'Fique atento(a) a' : 'Foco'}:</b> ${esc(pf.foco.join(', '))}<ul>${c.psicoeducacao.map(p => `<li>${esc(p)}</li>`).join('')}</ul>${conteudos}</div>
-  <button class=big id=checkin>Fazer check-in agora</button>
-  <details class=card id=demo><summary>Modo demonstração</summary>
-    <p class=aviso>Troca cenário, atividade, conexão e tempo sem parar o monitoramento.</p>
-    <div class=opc>${Object.entries(CENARIOS).map(([k, l]) => `<button class=op data-c=${k} aria-pressed=${S.pul.cenario === k}>${l}</button>`).join('')}</div>
-    <p>GPS e reconhecimento de atividade vêm de:</p><div class=opc>${Object.entries(FONTES).map(([k, l]) => `<button class=op data-fonte=${k} aria-pressed=${(S.pul.fonte || 'ambos') === k}>${l}</button>`).join('')}</div>
-    <p>Atividade detectada:</p><div class=opc>${[['', 'Automática (do cenário)'], ...Object.entries(ATIVIDADES)].map(([k, l]) => `<button class=op data-ativ="${k}" aria-pressed=${(S.pul.ativManual || '') === k}>${l}</button>`).join('')}</div>
-    <p>Conexão:</p><div class=opc>${Object.entries(CONEXOES).map(([k, l]) => `<button class=op data-con=${k} aria-pressed=${S.pul.con === k}>${l}</button>`).join('')}</div>
-    <p>Velocidade do tempo:</p><div class=opc>${[1, 5, 60].map(v => `<button class=op data-vel=${v} aria-pressed=${S.pul.vel === v}>${v}x${v === 60 ? ' (1 s = 1 min)' : ''}</button>`).join('')}</div>
-    <p class=aviso>Contagens curtas (check-in de segurança e ligação) aceleram no máximo 5x.</p>
-    <div class=opc><button class=op id=avancar15>Avançar 15 min</button><button class=op id=avancardia>Avançar 1 dia</button></div>
-    <label>Notificação diária às (h)<input id=notifh type=number min=0 max=23 value=${S.pul.notifH ?? R.sensor.notificacao_diaria_h}></label></details>
-  <button class=sec id=verres>Ver minha orientação</button><button class=sec id=resumo>Resumo para revisão clínica</button><button class=sec id=painel>Visão do CAPS</button>`);
-  ligarCartao(el('app')); atualizarTreino(pf);
+    <canvas id=cv width=500 height=120 aria-label="Gráfico da frequência cardíaca"></canvas><p class=aviso id=st></p><small>Leituras: <span id=n>0</span> · hora: <span id=relogio></span></small></div>
+  <div class=card id=disp><b>Pulseira (Bluetooth)</b>: ${at ? 'conectada' : 'desligada'} · bateria <span id=bat></span><br>
+    <b>Celular</b>: <span id=con></span><br>Atividade (<span id=fonteativ></span>): <span id=ativ></span><br>
+    GPS (<span id=fontegps></span>): <span id=gps>localização não compartilhada (só em alerta vermelho ou SOS, com sua permissão)</span><br><small id=buf></small></div>
+  <details class=card id=hist><summary>Histórico recente</summary><ul>${hist.map(l => `<li>${esc(l.t)} · ${esc(l.motivo)}</li>`).join('') || '<li>Nada ainda</li>'}</ul></details>`);
+  el('app').dataset.aba = 'pulseira';
+  on('mon', () => { Pulseira.iniciar(); abaPulseira(); });
+  on('parar', () => { el('parar').hidden = true; el('parconf').hidden = false; });
+  on('parNao', () => { el('parar').hidden = false; el('parconf').hidden = true; });
+  on('parSim', () => { Pulseira.parar(); abaPulseira(); });
+  hud(pf, {fc:Math.round(Pulseira.fc.at(-1) || 0), mov:Pulseira.mov.at(-1) || 0});
+}
+function telaDemo(){
+  tema('normal');
+  $(`<h1>Modo demonstração</h1><p class=aviso>Para a apresentação, fora da vista do paciente. Troca cenário, atividade, conexão e tempo sem parar o monitoramento.</p>
+  ${S.pul.ativo ? '' : '<p class=card>A pulseira está parada: comece o monitoramento na aba Pulseira.</p>'}
+  <p>Cenário:</p><div class=opc>${Object.entries(CENARIOS).map(([k, l]) => `<button class=op data-c=${k} aria-pressed=${S.pul.cenario === k}>${l}</button>`).join('')}</div>
+  <p>GPS e reconhecimento de atividade vêm de:</p><div class=opc>${Object.entries(FONTES).map(([k, l]) => `<button class=op data-fonte=${k} aria-pressed=${(S.pul.fonte || 'ambos') === k}>${l}</button>`).join('')}</div>
+  <p>Atividade detectada:</p><div class=opc>${[['', 'Automática (do cenário)'], ...Object.entries(ATIVIDADES)].map(([k, l]) => `<button class=op data-ativ="${k}" aria-pressed=${(S.pul.ativManual || '') === k}>${l}</button>`).join('')}</div>
+  <p>Conexão:</p><div class=opc>${Object.entries(CONEXOES).map(([k, l]) => `<button class=op data-con=${k} aria-pressed=${S.pul.con === k}>${l}</button>`).join('')}</div>
+  <p>Velocidade do tempo:</p><div class=opc>${[1, 5, 60].map(v => `<button class=op data-vel=${v} aria-pressed=${S.pul.vel === v}>${v}x${v === 60 ? ' (1 s = 1 min)' : ''}</button>`).join('')}</div>
+  <p class=aviso>Contagens curtas (check-in de segurança e ligação) aceleram no máximo 5x.</p>
+  <div class=duas><button class=sec id=avancar15>Avançar 15 min</button><button class=sec id=avancardia>Avançar 1 dia</button></div>
+  <label>Notificação diária às (h)<input id=notifh type=number min=0 max=23 value=${S.pul.notifH ?? R.sensor.notificacao_diaria_h}></label>
+  <button class=big id=painel>Visão do profissional (CAPS)</button>`);
+  el('app').dataset.aba = 'demo';
   document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
     S.pul.cenario = b.dataset.c; S.pul.i = 0; Pulseira.acima = 0; if (b.dataset.c === 'crise_madrugada') irParaHora(3);
     registrar('demo', S.nivel, 'Cenário: ' + CENARIOS[b.dataset.c]); store.gravar(); marcar('[data-c]', b);
@@ -655,10 +770,7 @@ function monitor(){
   on('avancar15', () => { S.pul.desloc += 15; store.gravar(); });
   on('avancardia', () => { S.pul.desloc += 1440; store.gravar(); });
   el('notifh').onchange = e => { S.pul.notifH = Math.max(0, Math.min(23, +e.target.value)); S.pul.notifDia = null; store.gravar(); };
-  el('locprevia').onchange = e => { S.locPrevia = e.target.checked; registrar('paciente', S.nivel, S.locPrevia ? 'Consentiu compartilhar localização em alertas vermelhos' : 'Retirou o consentimento de localização em alertas'); store.gravar(); };
-  on('checkin', () => { if (!E) abrirEma('paciente'); });
-  on('verres', resultado); on('resumo', () => telaResumo(monitor)); on('painel', painel);
-  hud(pf, {fc:Math.round(Pulseira.fc.at(-1) || 0), mov:Pulseira.mov.at(-1) || 0});
+  on('painel', () => ir('painel'));
 }
 const marcar = (sel, b) => document.querySelectorAll(sel).forEach(x => x.setAttribute('aria-pressed', x === b));
 
@@ -674,9 +786,9 @@ function abrirAlertaSensor(motivo){
   render('alerta', `<div class=tela><p class=aviso>A pulseira está vibrando.</p><h1>A pulseira notou uma mudança nos seus sinais</h1><p>${esc(motivo)}.</p>
     <p>Se não houver resposta em <b id=alcont>${AL.timeout} s</b>, vamos acionar ajuda.</p>
     <button class=big id=estoubem>Estou bem / fazendo exercício</button><button class="big sec" id=precisoajuda>Preciso de ajuda</button></div>`);
-  const e = el('alerta'); e.hidden = false; e.dataset.timeout = AL.timeout; el('estoubem').focus();
+  const e = el('alerta'); e.hidden = false; e.dataset.timeout = AL.timeout; barra(); el('estoubem').focus();
   on('estoubem', () => { S.pul.silencioAte = agora() + c.silenciar_min * 60000; registrar('pulseira', S.nivel, `Paciente disse que está bem: alertas da pulseira silenciados por ${c.silenciar_min} min`); store.gravar(); fecharAlerta(); });
-  on('precisoajuda', () => crise('Você pediu ajuda no check-in da pulseira.', 'check-in'));
+  on('precisoajuda', () => crise('Você pediu ajuda no check-in da pulseira.', 'pulseira'));
   AL.timer = setInterval(() => {
     if (!AL) return;
     const r = AL.timeout - (Date.now() - AL.inicio) / 1000 * escalaCurta();
@@ -684,7 +796,7 @@ function abrirAlertaSensor(motivo){
     const x = el('alcont'); if (x) x.textContent = `${Math.ceil(r)} s`;
   }, 150);
 }
-function fecharAlerta(){ if (AL) clearInterval(AL.timer); AL = null; el('alerta').hidden = true; render('alerta', ''); }
+function fecharAlerta(){ if (AL) clearInterval(AL.timer); AL = null; el('alerta').hidden = true; render('alerta', ''); barra(); }
 
 // EMA: painel sobreposto; o monitoramento continua rodando por baixo
 function abrirEma(origem){
@@ -721,8 +833,8 @@ function semResposta(){ // check-in agendado sem resposta = amarelo (contato do 
   fecharEma(); posReclass(antes);
 }
 function posReclass(antes){
-  if (S.nivel === 'vermelho' && antes !== 'vermelho') return telaVermelho(true, S.pul.ativo ? monitor : null, 'check-in');
-  if (el('hud')) monitor();
+  if (S.nivel === 'vermelho' && antes !== 'vermelho') return telaVermelho(true, () => ir(S.aba), 'check-in');
+  renderAba();
 }
 
 // ---------- consentimento, sessão ----------
@@ -740,21 +852,22 @@ function consentimento(msg = ''){
 // refazer a triagem reaproveita o perfil (idade, sexo, região, moradia, contato) e a linha de base; a pulseira continua
 function recomecar(){
   const velho = S;
-  S = {...novoEstado(), salvar:velho.salvar, base:velho.base, log:velho.log, pul:velho.pul, alertaId:velho.alertaId, locPrevia:velho.locPrevia, telemetria:velho.telemetria};
-  for (const k of R.perfil) if (velho.resp[k] !== undefined) S.resp[k] = velho.resp[k];
+  S = {...novoEstado(), salvar:velho.salvar, base:velho.base, log:velho.log, pul:velho.pul, alertaId:velho.alertaId, locPrevia:velho.locPrevia, telemetria:velho.telemetria, ultimoUso:velho.ultimoUso};
+  for (const k of R.perfil.concat(velho.ultimoUso ? ['q12'] : [])) if (velho.resp[k] !== undefined) S.resp[k] = velho.resp[k]; // o último uso não é perguntado de novo
   S.pre = Object.keys(S.resp); S.contato = velho.contato;
   store.gravar(); triagem();
 }
 function telaEncerrar(){
-  const volta = S.nivel === 'vermelho' ? () => telaVermelho(false) : S.pul.ativo ? monitor : S.etapa === 'resultado' ? resultado : triagem;
+  const volta = S.etapa === 'resultado' ? () => ir('dados') : triagem;
   tema('normal');
   $(`<h1>Encerrar sessão</h1><div class=card>Isso para a pulseira e apaga deste aparelho todas as respostas, o contato de confiança, a linha de base e o histórico.</div>
   ${S.nivel ? '<button class="big sec" id=exportar>Antes, ver e exportar o resumo</button>' : ''}
   <button class=big id=encerrarok>Encerrar e apagar tudo</button><button class=sec id=cancelar>Cancelar</button>`);
   on('exportar', () => telaResumo(telaEncerrar)); on('cancelar', volta);
+  document.body.dataset.modo = '';
   on('encerrarok', () => {
     Pulseira.parar('Sessão encerrada'); fecharEma(); fecharAlerta(); if (ESC) fecharEscala(); cancelarSos(); voltarVermelho = null;
-    store.apagar(); S = novoEstado(); delete el('app').dataset.sessao; Pulseira.fc = []; Pulseira.mov = []; Pulseira.n = 0;
+    store.apagar(); S = novoEstado(); delete el('app').dataset.sessao; Pulseira.fc = []; Pulseira.mov = []; Pulseira.n = 0; document.body.dataset.modo = '';
     barra(); consentimento('<div class=card id=encerrada>Sessão encerrada. Seus dados foram apagados deste aparelho.</div>');
   });
 }
@@ -762,10 +875,10 @@ function telaEncerrar(){
 S = {pul:{t0Real:Date.now(), t0Sim:Date.now(), vel:1, desloc:0}}; // relógio provisório até carregar as regras
 fetch('rules.json').then(r => r.json()).then(j => {
   R = j; S = novoEstado();
-  on('sos', pedirSos); on('sosSim', sos); on('sosNao', cancelarSos); on('encerrar', telaEncerrar);
-  on('parar', () => { el('parar').hidden = true; el('parconf').hidden = false; });
-  on('parSim', () => { Pulseira.parar(); el('hud') ? resultado() : barra(); });
-  on('parNao', () => { el('parar').hidden = false; el('parconf').hidden = true; });
+  on('sos', pedirSos); on('sosSim', sos); on('sosNao', cancelarSos); on('engrenagem', () => S.etapa === 'resultado' ? ir('dados') : telaEncerrar());
+  el('nav').innerHTML = ABAS.map(([k, i, l]) => `<button data-aba=${k}><span aria-hidden=true>${i}</span>${l}</button>`).join('');
+  el('nav').querySelectorAll('[data-aba]').forEach(b => b.onclick = () => ir(b.dataset.aba));
+  setInterval(() => document.querySelectorAll('[data-semuso]').forEach(e => { e.textContent = textoSemUso(); }), 1000); // tempo sem usar sempre do carimbo
   const salvo = store.ler();
   if (salvo?.v !== 2) return consentimento();
   CAMPOS.forEach(k => { if (salvo[k] !== undefined) S[k] = k === 'pul' ? {...S.pul, ...salvo.pul} : salvo[k]; });
@@ -773,5 +886,5 @@ fetch('rules.json').then(r => r.json()).then(j => {
   if (S.pul.ativo) Pulseira.ligar(); // a pulseira continua depois de recarregar, até "Parar" ou "Encerrar sessão"
   barra();
   if (S.etapa !== 'resultado') return triagem();
-  S.nivel === 'vermelho' ? telaVermelho(false) : S.pul.ativo ? monitor() : resultado();
+  ir(S.aba || 'inicio');
 }).catch(e => { console.error(e); $('<div class=card>Não foi possível carregar rules.json. Abra por um servidor (veja o README).</div>'); });
