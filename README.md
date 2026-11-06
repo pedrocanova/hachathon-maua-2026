@@ -8,7 +8,7 @@ Pulseira de baixo custo + app para quem está parando o uso de substâncias.
 python -m http.server 8000      # ou: rodar.bat (Windows, Python portátil em ./python)
 ```
 Abra http://localhost:8000 (precisa de servidor porque o app carrega `rules.json`).
-Roteiro de 3 minutos: [docs/demo.md](docs/demo.md).
+Roteiro de 3 minutos: [docs/demo.md](docs/demo.md). **Vídeo de uso** (telas reais, 3 min 25 s): [docs/video/pulso-demo.mp4](docs/video/pulso-demo.mp4), com legendas em [pulso-demo.srt](docs/video/pulso-demo.srt); para regravar, veja `docs/video/gravar.js`.
 Parâmetros de demonstração: `?rapido` (tempo 60x), `?vel=5` (5x), `?hora=3` (começa às 3h). Também no "Modo demonstração".
 
 ## Testes

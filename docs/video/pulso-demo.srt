@@ -1,0 +1,75 @@
+1
+00:00:04,238 --> 00:00:11,957
+Acolhimento: A primeira tela recebe a pessoa pelo nome e pede consentimento explícito (LGPD art. 11). Os dados ficam só neste aparelho, apenas para teste.
+
+2
+00:00:11,957 --> 00:00:16,777
+Triagem guiada: Uma pergunta por vez, toques grandes e sempre a opção "Prefiro não responder". Base: ASSIST, PAWSS, CIWA-Ar, COWS, PHQ-2 e C-SSRS.
+
+3
+00:00:16,777 --> 00:00:23,458
+Contato de confiança: Um contato de confiança (aqui, Ana) pode ser avisado em momentos de risco, sempre de forma transparente para a pessoa.
+
+4
+00:00:23,458 --> 00:00:32,473
+Substância: Exemplo da demonstração: uma pessoa parando o álcool. A classe da substância define a intensidade do acompanhamento.
+
+5
+00:00:32,473 --> 00:00:41,991
+Último uso: O último uso é perguntado uma única vez. O app guarda a data e calcula sozinho o tempo sem usar e a fase da abstinência.
+
+6
+00:00:41,991 --> 00:01:01,615
+Sinais de alerta: Confusão, alucinações, febre ou convulsão recente são critérios vermelhos: um só basta para interromper a triagem e oferecer ajuda imediata.
+
+7
+00:01:01,615 --> 00:01:06,153
+Segurança: Perguntas de rastreio de risco (C-SSRS). Nada já respondido ou dedutível é perguntado de novo.
+
+8
+00:01:06,153 --> 00:01:19,807
+Perfil de risco e Início: Saudação pelo nome, nível em cor calma (o paciente nunca vê vermelho vibrante), tempo sem usar calculado pela data do último uso e o próximo check-in.
+
+9
+00:01:19,807 --> 00:01:31,343
+Hoje e nos próximos dias: O que a pessoa pode sentir na fase atual, "um passo pequeno para hoje", o que ajuda agora e, sempre, quando procurar ajuda (CAPS/UBS e SAMU).
+
+10
+00:01:31,343 --> 00:01:39,111
+Respirar: Respiração guiada: o círculo cresce enquanto a pessoa inspira (4 s) e diminui enquanto solta o ar (6 s).
+
+11
+00:01:39,111 --> 00:01:52,399
+Pulseira: A pulseira (simulada, via Bluetooth) mede frequência cardíaca, tremor/movimento e sono. O alerta dispara por desvio da linha de base da própria pessoa.
+
+12
+00:01:52,399 --> 00:02:00,275
+Apoio: CAPS AD, UBS e ONGs próximos, o contato de confiança, SAMU 192 e CVV 188. A pulseira continua monitorando ao trocar de aba.
+
+13
+00:02:00,275 --> 00:02:14,725
+Exercício não é crise: No Modo demonstração, simulamos uma corrida: a FC sobe, mas os passos ritmados indicam exercício e não há alerta. Velocidade de GPS sozinha nunca basta.
+
+14
+00:02:14,725 --> 00:02:23,263
+Check-in de segurança: Agora uma crise em repouso: FC e tremor alterados sem atividade. O app abre um check-in em tela cheia, com vibração e som.
+
+15
+00:02:23,263 --> 00:02:27,794
+Check-in de segurança: A pessoa responde "Estou bem" ou "Preciso de ajuda". Sem resposta em 45 s (de dia) ou 90 s (à noite), o caso é tratado como crise aguda.
+
+16
+00:02:27,794 --> 00:02:39,752
+Pedido de ajuda: O painel do CAPS recebe o alerta com a telemetria e o contato de confiança é avisado. O SAMU 192 só é chamado se a pessoa tocar, com confirmação.
+
+17
+00:02:39,752 --> 00:02:52,808
+Usei de novo: Recaída é tratada com acolhimento, sem julgamento: "Obrigado por contar. Isso não apaga o que você já fez." Recaída sozinha nunca aciona o SAMU.
+
+18
+00:02:52,808 --> 00:03:12,752
+Visão do profissional (CAPS): A equipe vê alertas e telemetria, confirma ou ajusta o nível e define o plano de check-ins (intervalo, madrugada e motivo clínico).
+
+19
+00:03:12,752 --> 00:03:21,981
+Revisão humana sempre: O Pulso faz classificação de risco, não diagnóstico. Toda regra clínica está em rules.json, auditável, e todo resultado aguarda revisão de um profissional.
