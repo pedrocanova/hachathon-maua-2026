@@ -27,3 +27,7 @@ Antes: rode `python -m http.server 8000` (ou `rodar.bat`) e abra **http://localh
 14. Feche: classificação de risco, **não é diagnóstico**; toda regra está em `rules.json` e passa por revisão de profissional.
 
 Se algo travar: engrenagem **Dados → Encerrar sessão e apagar dados** e recomece.
+
+## Dicas para a apresentação
+- **Disparar o alerta de novo:** depois de "Estou bem", a pulseira fica em pausa (60 min ou mais, conforme o perfil) e, nas 4 h seguintes, só alerta de novo se o sinal **piorar**. Para repetir na demo, em Modo demonstração toque em outro cenário e depois de novo em **"Crise em repouso"**: escolher um cenário começa uma situação nova. "Avançar 15 min / 1 dia" conta como tempo corrido.
+- **Modo Treino:** fica na aba **Início** ("Vou treinar / fazer atividade física"). Com álcool/calmantes na fase aguda aparece bloqueado ("descansar"). Para mostrar: triagem com **Tabaco** → Pulseira → Começar → Início → **30 min** → Modo demonstração → **"Musculação/bicicleta parada"** (FC sobe, sem alerta) → **"Crise em repouso"** (tremor em repouso alerta mesmo em treino).

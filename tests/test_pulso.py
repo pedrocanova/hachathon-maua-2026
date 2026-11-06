@@ -777,3 +777,24 @@ def test_fissura_alta_abre_tela_calma(page):
         if q == "q22": page.click("#emacorpo .op[data-v='9']")
         else: page.locator("#emacorpo .op").first.click()
     expect(page.locator("#fissura")).to_be_visible()
+
+
+def test_estou_bem_nao_repete_alerta_se_nao_piorar(page):
+    iniciar(page); responder(page, VERDE)
+    monitorar(page); cenario(page, "crise_repouso")
+    expect(page.locator("#alerta")).to_be_visible(timeout=10000)
+    page.wait_for_timeout(3000)                                                    # sinal estabiliza no platô do cenário
+    page.click("#estoubem")
+    for _ in range(9): page.click("#avancar15")                                   # 2 h 15 depois: pausa acabou, sinal igual
+    page.wait_for_timeout(4000)
+    expect(page.locator("#alerta")).to_be_hidden()
+    assert "parecida com a anterior" in log(page)
+
+
+def test_demo_escolher_cenario_de_novo_permite_novo_alerta(page):
+    iniciar(page); responder(page, VERDE)
+    monitorar(page); cenario(page, "crise_repouso")
+    expect(page.locator("#alerta")).to_be_visible(timeout=10000)
+    page.click("#estoubem")
+    page.click("[data-c=estavel]"); page.click("[data-c=crise_repouso]")         # apresentação: disparar de novo
+    expect(page.locator("#alerta")).to_be_visible(timeout=15000)

@@ -689,17 +689,21 @@ const Pulseira = {
             if (fcAlto) this.descartar('Modo Treino ativo: gatilho de FC suspenso');
             fcAlto = false; if (p.ativ !== 'parado') movAlto = false; // tremor em repouso nunca é suspenso
           }
-          else if (minDesde(S.pul.silencioAte) < 0){ this.descartar('você disse que está bem (silenciado por 30 min)'); fcAlto = movAlto = false; }
+          else if (minDesde(S.pul.silencioAte) < 0){ this.descartar('você disse que está bem (alertas em pausa)'); fcAlto = movAlto = false; }
           else if (fcAlto && p.ativ === 'veiculo' && this.descarte !== 'veiculo'){ this.descarte = 'veiculo'; registrar('filtro', S.nivel, 'FC alta em veículo: NÃO descartado (velocidade de GPS sozinha não indica exercício)'); }
         } else this.descarte = null;
         this.acima = fcAlto || movAlto ? this.acima + 1 : 0;
         if (this.acima >= cfg.amostras_persistencia){
           this.acima = 0;
-          const grave = Math.max(Math.abs(zf), Math.abs(zm)) >= k * cfg.checkin_agendado.sensor_mult_vermelho;
-          if (!grave && dormindo() && minDesde(S.pul.ultimoAlerta) >= cfg.intervalo_min_alerta_min){
-            S.pul.ultimoAlerta = agora(); registrar('pulseira', 'amarelo', 'Mudança leve nos sinais durante o sono: registrada sem alarme; CAPS/UBS pode contatar de manhã');
-            aplicar({nivel:'amarelo', motivos:[{nivel:'amarelo', motivo:T.noite_anomalia}]}, 'pulseira');
-          } else if (podeAlerta() && minDesde(S.pul.ultimoAlerta) >= cfg.intervalo_min_alerta_min) abrirAlertaSensor(fcAlto ? (zf < 0 ? 'FC abaixo do seu normal' : 'FC acima do seu normal') : 'tremor/movimento em repouso');
+          const zmax = Math.max(Math.abs(zf), Math.abs(zm)); this.z = zmax; const grave = zmax >= k * cfg.checkin_agendado.sensor_mult_vermelho;
+          const cs = cfg.checkin_sensor, dis = S.pul.dispensa; // depois de "Estou bem": só alerta de novo se piorar
+          if (dis && minDesde(dis.t) < cs.reavaliar_min && zmax < dis.z + cs.piora_desvios){
+            if (!dis.registrado){ dis.registrado = true; registrar('pulseira', S.nivel, 'Mudança parecida com a anterior (você disse que estava bem): registrada, sem novo alerta'); store.gravar(); }
+            this.aviso = 'Mudança parecida com a anterior: registrada, sem novo alerta.';
+          } else if (!grave && dormindo()){ if (minDesde(S.pul.ultimoRegNoite) >= cfg.intervalo_min_alerta_min){ // registro sem alarme não bloqueia alerta grave
+            S.pul.ultimoRegNoite = agora(); registrar('pulseira', 'amarelo', 'Mudança leve nos sinais durante o sono: registrada sem alarme; CAPS/UBS pode contatar de manhã');
+            aplicar({nivel:'amarelo', motivos:[{nivel:'amarelo', motivo:T.noite_anomalia}]}, 'pulseira'); }
+          } else if (podeAlerta() && minDesde(S.pul.ultimoAlerta) >= cfg.intervalo_min_alerta_min) abrirAlertaSensor(fcAlto ? (zf < 0 ? 'FC abaixo do seu normal' : 'FC acima do seu normal') : 'tremor/movimento em repouso', zmax);
           else this.aviso = 'A pulseira notou uma mudança. Novo check-in só depois do intervalo mínimo.';
         }
       } else txt = 'Calibrando o seu normal (linha de base)…';
@@ -804,7 +808,7 @@ function telaDemo(){
   el('sonosensor').onchange = e => { S.pul.sonoSensor = e.target.checked; registrar('demo', S.nivel, e.target.checked ? 'Pulseira indica sono' : 'Pulseira indica acordado'); store.gravar(); };
   el('app').dataset.aba = 'demo';
   document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
-    S.pul.cenario = b.dataset.c; S.pul.i = 0; Pulseira.acima = 0; if (b.dataset.c === 'crise_madrugada') irParaHora(3);
+    S.pul.cenario = b.dataset.c; S.pul.i = 0; Pulseira.acima = 0; S.pul.dispensa = S.pul.silencioAte = S.pul.ultimoAlerta = null; /* demo: nova situação, pode alertar de novo */ if (b.dataset.c === 'crise_madrugada') irParaHora(3);
     registrar('demo', S.nivel, 'Cenário: ' + CENARIOS[b.dataset.c]); store.gravar(); marcar('[data-c]', b);
   });
   document.querySelectorAll('[data-ativ]').forEach(b => b.onclick = () => { S.pul.ativManual = b.dataset.ativ || null; store.gravar(); marcar('[data-ativ]', b); });
@@ -820,7 +824,7 @@ const marcar = (sel, b) => document.querySelectorAll(sel).forEach(x => x.setAttr
 
 // ---------- check-in de segurança (anomalia só de sensor): tela cheia, vibração, som, timeout ----------
 function bip(){ try { const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain(); o.frequency.value = 660; g.gain.value = .08; o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + .4); } catch {} }
-function abrirAlertaSensor(motivo){
+function abrirAlertaSensor(motivo, z = 0){
   const c = R.sensor.checkin_sensor;
   AL = {inicio:Date.now(), timeout: noite() ? c.timeout_noite_s : c.timeout_dia_s, motivo};
   S.pul.ultimoAlerta = agora();
@@ -831,7 +835,8 @@ function abrirAlertaSensor(motivo){
     <p>Se não houver resposta em <b id=alcont>${AL.timeout} s</b>, vamos acionar ajuda.</p>
     <button class=big id=estoubem>Estou bem / fazendo exercício</button><button class="big sec" id=precisoajuda>Preciso de ajuda</button></div>`);
   const e = el('alerta'); e.hidden = false; e.dataset.timeout = AL.timeout; barra(); el('estoubem').focus();
-  on('estoubem', () => { S.pul.silencioAte = agora() + c.silenciar_min * 60000; registrar('pulseira', S.nivel, `Paciente disse que está bem: alertas da pulseira silenciados por ${c.silenciar_min} min`); store.gravar(); fecharAlerta(); });
+  on('estoubem', () => { const m = Math.max(c.silenciar_min, perfil().int.cooldown_min); S.pul.silencioAte = agora() + m * 60000; S.pul.dispensa = {t:agora(), z:Math.max(z, Pulseira.z || 0)};
+    registrar('pulseira', S.nivel, `Paciente disse que está bem: alertas da pulseira silenciados por ${duracao(m)}; nas próximas ${duracao(c.reavaliar_min)}, novo alerta só se piorar`); store.gravar(); fecharAlerta(); });
   on('precisoajuda', () => crise('Você pediu ajuda no check-in da pulseira.', 'pulseira'));
   AL.timer = setInterval(() => {
     if (!AL) return;

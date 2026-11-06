@@ -173,7 +173,7 @@
     "amostras_linha_base": 10,
     "amostras_persistencia": 3,
     "dp_minimo": {"fc": 3, "mov": 0.3},
-    "intervalo_min_alerta_min": 5,
+    "intervalo_min_alerta_min": 15,
     "_nota": "Disparo por desvio da linha de base individual (z-score de FC ou movimento), em QUALQUER direção. O limiar (desvios_para_disparo) vem do perfil. Limiares são parâmetros iniciais NÃO validados. A pulseira (BLE) mede FC, tremor/movimento e sono e vibra; GPS e reconhecimento de atividade vêm da pulseira e/ou do celular (configurável).",
     "atividade": {
       "exercicio_se": ["andando", "correndo"],
@@ -186,8 +186,10 @@
       "timeout_noite_s": 90,
       "noite_inicio_h": 22,
       "noite_fim_h": 6,
-      "silenciar_min": 30,
-      "_nota": "Anomalia só de sensor: tela cheia com 'Estou bem' (silencia) e 'Preciso de ajuda'. Sem resposta = crise aguda por segurança."
+      "silenciar_min": 60,
+      "reavaliar_min": 240,
+      "piora_desvios": 2.0,
+      "_nota": "Anomalia só de sensor: tela cheia com 'Estou bem' (silencia) e 'Preciso de ajuda'. Sem resposta = crise aguda por segurança. Depois de 'Estou bem': nenhum alerta por max(silenciar_min, cooldown do perfil); até reavaliar_min, novo alerta só se o desvio PIORAR em piora_desvios ou mais (desvio parecido vira só registro). SOS e respostas vermelhas nunca são silenciados."
     },
     "treino": {
       "opcoes_min": [30, 60, 120],
