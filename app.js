@@ -156,7 +156,7 @@ function perfil(){
     !agudo && `Você está na ${regime.nome.toLowerCase()}: check-ins mais espaçados, com foco em ${foco.join(', ')}.`,
     cands.length > 1 && `Você marcou mais de uma substância: vale o acompanhamento da de maior risco (${nomes}).`,
     mods.length && `Reforçamos o acompanhamento porque: ${mods.map(m => m.motivo).join('; ')}.`,
-    `Check-in a cada ${duracao(checkin)}${S.checkinProf ? ' (definido pelo profissional que acompanha você)' : ''}${S.checkinProf?.noite ? '.' : `, nunca no seu horário de sono (${sono.ini}h às ${sono.fim}h).`} A pulseira pede um check-in extra quando seus sinais se afastam do seu normal (sensibilidade ${int.sensibilidade}).`,
+    `Check-in a cada ${duracao(checkin)}${S.checkinProf ? ` (sua equipe pediu um acompanhamento mais próximo${S.checkinProf.motivo ? ': ' + S.checkinProf.motivo : ''}${S.checkinProf.noite ? ', inclusive à noite, por segurança' : ''}; definido pelo profissional que acompanha você)` : ''}${S.checkinProf?.noite ? '.' : `, nunca no seu horário de sono (${sono.ini}h às ${sono.fim}h).`} A pulseira pede um check-in extra quando seus sinais se afastam do seu normal (sensibilidade ${int.sensibilidade}).`,
     riscoVital ? `Prestamos atenção em: ${foco.join(', ')}.` : `O foco é ${foco.join(', ')}.`,
     horas === null && 'Você não informou o último uso: por segurança, consideramos que está na fase de maior risco.'
   ].filter(Boolean);
@@ -606,6 +606,8 @@ function painel(){
   <div class=card id=checkinprof><b>Check-in agendado (decisão do profissional)</b><p class=aviso>Padrão do perfil: a cada ${duracao(perfil().int.checkin_min)}, nunca no horário de sono do paciente. Um intervalo mais curto ou check-in de madrugada deve ser decidido por quem acompanha o caso.</p>
     <label>Intervalo<select id=profintervalo><option value="">Padrão do perfil</option>${R.sensor.checkin_agendado.opcoes_profissional_min.map(m => `<option value=${m} ${S.checkinProf?.min === m ? 'selected' : ''}>a cada ${duracao(m)}</option>`).join('')}</select></label>
     <label class=check><input type=checkbox id=profnoite ${S.checkinProf?.noite ? 'checked' : ''}> <span>Também no horário de sono (pode acordar o paciente)</span></label>
+    <label>Profissional (simulado)<input id=profnome maxlength=40 autocomplete=off value="${esc(S.checkinProf?.prof || 'Equipe do CAPS AD')}"></label>
+    <label>Motivo clínico (curto)<input id=profmotivo maxlength=120 autocomplete=off value="${esc(S.checkinProf?.motivo || '')}" placeholder="ex.: primeiras 72 h após convulsão"></label>
     <button id=profcheckinok>Salvar intervalo</button></div>
   <div class=log>${S.log.map(l => `${esc(l.t)} [${esc(l.origem)}] <span class="chip ${l.nivel}">${l.nivel}</span> ${esc(l.motivo)}`).join('<br>') || 'Sem registros'}</div>
   <button class=sec id=resumo>Resumo para revisão clínica</button><button class=big id=voltar>Voltar ao modo demonstração</button>`);
@@ -616,8 +618,9 @@ function painel(){
   });
   on('profcheckinok', () => {
     const m = +el('profintervalo').value, noite = el('profnoite').checked;
-    S.checkinProf = m || noite ? {min: m || perfil().int.checkin_min, noite} : null;
-    registrar('profissional', S.nivel, S.checkinProf ? `Check-in definido pelo profissional: a cada ${duracao(S.checkinProf.min)}${noite ? ', inclusive no horário de sono' : ', fora do horário de sono'}` : 'Check-in voltou ao padrão do perfil');
+    const prof = el('profnome').value.trim().slice(0, 40) || 'Equipe do CAPS AD', motivo = el('profmotivo').value.trim().slice(0, 120);
+    S.checkinProf = m || noite ? {min: m || perfil().checkin, noite, prof, motivo, em:hora()} : null;
+    registrar('profissional', S.nivel, S.checkinProf ? `Plano de acompanhamento definido pelo profissional (${prof}, ${hora()}): check-in a cada ${duracao(S.checkinProf.min)}${noite ? ', inclusive no horário de sono' : ', fora do horário de sono'}${motivo ? '. Motivo: ' + motivo : ''}` : 'Check-in voltou ao padrão do perfil');
     store.gravar(); painel();
   });
   on('resumo', () => telaResumo(painel));

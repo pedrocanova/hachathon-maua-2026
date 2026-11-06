@@ -3,11 +3,12 @@
 Pulseira de baixo custo + app para quem está parando o uso de substâncias.
 **Classificação de risco, não é diagnóstico.** Todo resultado fica pendente de revisão por profissional. Limiares, perfis e orientações são parâmetros iniciais **não validados clinicamente** (`rules.json/_meta.aviso`).
 
-## Rodar
+## Como rodar
 ```
 python -m http.server 8000      # ou: rodar.bat (Windows, Python portátil em ./python)
 ```
 Abra http://localhost:8000 (precisa de servidor porque o app carrega `rules.json`).
+Roteiro de 3 minutos: [docs/demo.md](docs/demo.md).
 Parâmetros de demonstração: `?rapido` (tempo 60x), `?vel=5` (5x), `?hora=3` (começa às 3h). Também no "Modo demonstração".
 
 ## Testes
@@ -52,7 +53,7 @@ cadastro/triagem → perfil de risco → acompanhamento em **5 abas** (barra inf
 - **Níveis:** amarelo = contato do CAPS/UBS em até 24 h (inclui risco de recaída); vermelho = risco vital/SAMU. Recaída sozinha nunca aciona o SAMU.
 - **"Hoje e nos próximos dias"**: cartão com "Hoje você pode sentir…", "Nos próximos dias…", "O que ajuda agora" e, **sempre**, "Procure ajuda se…" (com CAPS/UBS e SAMU). Conteúdo por classe e faixa de horas em `rules.json/orientacao`, com `fonte` e `revisao_clinica: pendente`. Adapta-se ao observado (sono ruim, fissura alta, nível amarelo). Notificação simulada no início do dia e a cada mudança de fase. Substância mista: combina, com o "procure ajuda" do maior risco primeiro.
 
-- **Check-in agendado**: padrão 1x/dia (leve), 2x/dia (próximo), 3x/dia (intensivo), **nunca no horário de sono** (padrão 22h–7h, ajustável em Perfil e dados; o que vencer à noite fica para o despertar). Intervalo mais curto ou check-in de madrugada só por decisão do profissional, no painel. O check-in de segurança por anomalia da pulseira continua valendo à noite.
+- **Check-in programado** (parâmetros propostos, não validados): fase aguda de depressores a cada 6 h acordado; fase aguda de risco menor a cada 8 h; recuperação 2x/dia; manutenção 1x/dia; nenhum abaixo de 4 h sem plano do profissional; máximo 3 por dia e 60 min depois de qualquer outro aviso. **Nunca no sono**: janela de silêncio (22h–7h, ajustável) ou pulseira indicando sono; o que vencer fica para o despertar. À noite, mudança leve de sensor vira registro amarelo (CAPS/UBS de manhã), sem alarme; só desvio grave ou SOS acordam. A pessoa pode adiar 1 h ou pausar 24 h (SOS e alertas de segurança continuam). **Plano do profissional** (painel): intervalo menor, madrugada, profissional e motivo clínico, explicados ao paciente.
 
 ## Pulseira, filtro e escalonamento (simulados)
 - Serviço independente das telas; só para com **Parar** (com confirmação) ou **Encerrar sessão**.
@@ -68,5 +69,13 @@ cadastro/triagem → perfil de risco → acompanhamento em **5 abas** (barra inf
 - Com consentimento explícito (LGPD art. 11), dados **só neste aparelho, apenas para teste**, até "Encerrar sessão" (que oferece exportar o resumo e apaga tudo).
 - **Resumo para revisão clínica** (tela imprimível + JSON) e **painel do CAPS** (níveis em vermelho/laranja, telemetria dos alertas, "Confirmar ou ajustar nível").
 
+## Acolhimento
+Textos em `textos.json` (`revisao_clinica: pendente`): boas-vindas com nome, saudação, frases de transição na triagem, "um passo pequeno para hoje", recaída ("Obrigado por contar. Isso não apaga o que você já fez." + tempo conquistado), tela calma de fissura alta, reconhecimento pós-crise. Sem termos estigmatizantes (viciado, limpo/sujo, usuário, fracasso). Telas de emergência sem texto motivacional antes da ação.
+
 ## Cores e acessibilidade
 Paletas do guia mantidas como **escolha de design para ambiente calmo, sem efeito fisiológico comprovado**. Só a cor do texto foi ajustada para contraste WCAG ≥ 4,5:1 (teste automático). O paciente nunca vê vermelho ou amarelo vibrantes.
+
+## Próximos passos
+- **P1 não feito**: humor do dia em um toque (1x/dia após a janela de silêncio), "Meu motivo" exibido em momentos difíceis, marcos de progresso (24 h, 3 dias, 1 semana, 1 mês), cartão "Quem está com você", limite diário no plano do profissional, ilustrações SVG leves.
+- **P2**: check-ins perdidos (1–2 ausências na fase aguda de alto risco = aviso amarelo à equipe em horário adequado); suíte completa de testes revisada para esta rodada (hoje: testes de fumaça + suíte anterior).
+- Revisão clínica de `rules.json` e `textos.json`; piloto com validação do sensor (ver [lacunas](docs/lacunas.md)).
