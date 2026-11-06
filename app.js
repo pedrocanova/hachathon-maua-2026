@@ -103,7 +103,7 @@ const marcoProx = h => h === null ? null : T.marcos.lista.find(m => h < m.h) || 
 function cartaoMarco(){
   const h = horasSemUso(), M = T.marcos; if (h === null) return '';
   const m = marcoAtual(h), px = marcoProx(h), total = (S.conquistadoH || 0) + h;
-  return `<div class="card acolhe" id=marco data-h=${m?.h ?? 0}>${m ? `<p class=destaque>Parabéns! ${esc(m.titulo)}</p><p>${esc(m.texto)}</p>` : `<p>${esc(M.antes)}</p>`}
+  return `<div class="card acolhe" id=marco data-h=${m?.h ?? 0}>${m ? `<p><b>Parabéns! ${esc(m.titulo)}</b></p><p>${esc(m.texto)}</p>` : `<p>${esc(M.antes)}</p>`}
     ${px ? `<p class=aviso id=proxmarco>${esc(M.proximo.replace('{marco}', px.titulo.replace('!', '')).replace('{falta}', fmtH(px.h - h)))}</p>` : ''}
     ${S.conquistadoH ? `<p id=totalconq>${esc(M.total.replace('{tempo}', fmtH(total)))}</p>` : ''}</div>`;
 }
@@ -330,7 +330,7 @@ function continuarTriagem(){
   S.vistos = [...new Set(S.vistos.concat(S.motivos.filter(m => m.nivel === 'vermelho').map(m => m.motivo)))];
   S.etapa = 'nucleo'; store.gravar(); triagem();
 }
-function fimComplementar(){ S.etapa = 'resultado'; S.compFeito = true; S.info = classificar(R.regras, resp()).info; store.gravar(); ir('inicio'); }
+function fimComplementar(){ S.etapa = 'resultado'; S.compFeito = true; S.info = classificar(R.regras, resp()).info; store.gravar(); ir('inicio'); toast(T.positivo.complementares); }
 function complementar(){ S.etapa = 'complementar'; S.pos = 0; store.gravar(); triagem(); }
 
 // ---------- resultado ----------
@@ -371,19 +371,19 @@ function inicio(){
   const posCrise = S.log.some(l => l.nivel === 'vermelho') && S.nivel !== 'vermelho';
   $(`<p class=saudacao id=saudacao>${esc(saud)}${S.nome ? ', ' + esc(S.nome) : ''}.</p>
   ${posCrise ? `<p class="card acolhe" id=poscrise>${esc(T.poscrise)}</p>` : ''}
-  <small>Classificação de risco</small><h1 id=nivel data-nivel=${n}>${ROTULO[n]}</h1>${statusRevisao()}
+  <small>Classificação de risco</small><h1 id=nivel data-nivel=${n}>${ROTULO[n]}</h1>${n === 'amarelo' ? `<p class=acolhe-curto id=acolheamarelo>${esc(T.amarelo_acolhe)}</p>` : ''}${statusRevisao()}
   ${n === 'vermelho' ? '<button class=big id=abrirajuda>Abrir a tela de ajuda</button>' : ''}
   ${suic ? '<a class="btn big sec" href="tel:188">Conversar com o CVV 188 (24 h, gratuito)</a>' : ''}
   ${presencial ? '<p class=card id=presencial><b>Parar em casa, sem acompanhamento, não é indicado.</b> Procure avaliação presencial no CAPS AD, na UBS ou no pronto-socorro.</p>' : ''}
   ${pf.altoRisco ? `<p id=altorisco><b>${esc(R.regimes.alto_risco_agudo)}</b></p>` : ''}
-  ${n !== 'vermelho' ? cartaoMarco() : ''}
   <div class=card id=painelinicio>
-    <p class=destaque><span id=semuso data-semuso>${textoSemUso()}</span></p>
+    <p class=hero><span id=semuso data-semuso>${textoSemUso()}</span></p>
     <p><span id=dia>Dia ${pf.dia} de acompanhamento · ${esc(pf.regime.nome)}</span><br><small id=fasetxt>${esc(pf.fase.texto)}</small></p>
     <p>Próximo check-in <b id=prox></b></p>
     <p id=pulslinha>${linhaPulseira()}</p>
   </div>
   <button class=big id=checkin>Fazer check-in agora</button>
+  ${n !== 'vermelho' ? cartaoMarco() : ''}
   <div class=card id=treino></div>
   <div class=duas><button class=sec id=useidenovo>Usei de novo</button><button class=sec id=corrigiruso>${S.ultimoUso ? 'Corrigir a data do último uso' : 'Informar o último uso'}</button></div>
   ${porque()}
@@ -422,7 +422,7 @@ function useiDeNovo(){
 function corrigirUso(){
   const q = R.triagem.find(x => x.id === 'q12');
   telaPergunta(q, {pos:0, total:1, rotulo:'Último uso', voltar:() => ir('inicio')}, (v, extra) => {
-    if (v !== undefined){ S.resp.q12 = v; definirUltimoUso(v, extra, 'correcao'); registrar('paciente', S.nivel, `Último uso informado ou corrigido: ${textoSemUso()}`); store.gravar(); }
+    if (v !== undefined){ S.resp.q12 = v; definirUltimoUso(v, extra, 'correcao'); registrar('paciente', S.nivel, `Último uso informado ou corrigido: ${textoSemUso()}`); store.gravar(); ir('inicio'); return toast(T.positivo.ultimo_uso); }
     ir('inicio');
   });
   el('app').dataset.aba = 'sub';
@@ -575,10 +575,10 @@ function sos(){ cancelarSos(); crise('Você pediu ajuda pelo botão SOS.', 'SOS'
 function respirar(){
   tema(temaPaciente(S.nivel));
   $(`<h1>Respire com o círculo</h1><div id=resp></div>
-  <p class=destaque style="text-align:center" id=fase aria-live=polite>Inspire…</p><p class=aviso style="text-align:center">4 segundos para inspirar, 6 para soltar o ar.</p>`);
+  <p class=destaque style="text-align:center" id=fase aria-live=polite>Inspire…</p><p class=aviso style="text-align:center">4 segundos para inspirar, 6 para soltar o ar.</p><p class="card acolhe" id=respok aria-live=polite hidden></p>`);
   el('app').dataset.aba = 'respirar';
-  let t = 0; clearInterval(window._ri);
-  window._ri = setInterval(() => { const e = el('fase'); if (!e) return clearInterval(window._ri); t = (t + 1) % 10; e.textContent = t < 4 ? 'Inspire…' : 'Solte o ar devagar…'; }, 1000);
+  let t = 0, n = 0; clearInterval(window._ri);
+  window._ri = setInterval(() => { const e = el('fase'); if (!e) return clearInterval(window._ri); n++; t = (t + 1) % 10; e.textContent = t < 4 ? 'Inspire…' : 'Solte o ar devagar…'; if (n === 60){ const b = el('respok'); if (b){ b.textContent = T.positivo.respirar; b.hidden = false; } } }, 1000);
 }
 
 // ---------- resumo para revisão clínica ----------
@@ -697,7 +697,7 @@ const Pulseira = {
       if (S.pul.con === 'offline'){ S.pul.buffer.push(leitura); if (S.pul.buffer.length > 500) S.pul.buffer.shift(); }
       else { if (S.pul.buffer.length){ this.aviso = `Conexão de volta: ${S.pul.buffer.length} leituras guardadas foram enviadas.`; S.pul.enviados += S.pul.buffer.length; S.pul.buffer = []; } S.pul.enviados++; }
       S.pul.bateria = Math.max(5, S.pul.bateria - 0.0005 * S.pul.vel);
-      if (S.pul.treino && !treinoAtivo()){ S.pul.treino = null; registrar('treino', S.nivel, 'Modo Treino terminou: gatilhos de FC reativados'); toast('Modo Treino terminou. O monitoramento completo voltou.'); atualizarTreino(pf); }
+      if (S.pul.treino && !treinoAtivo()){ S.pul.treino = null; registrar('treino', S.nivel, 'Modo Treino terminou: gatilhos de FC reativados'); toast(T.positivo.treino_fim); atualizarTreino(pf); }
       let txt = '';
       if (S.base){
         const k = pf.int.desvios_para_disparo;
@@ -858,7 +858,7 @@ function abrirAlertaSensor(motivo, z = 0){
     <button class=big id=estoubem>Estou bem / fazendo exercício</button><button class="big sec" id=precisoajuda>Preciso de ajuda</button></div>`);
   const e = el('alerta'); e.hidden = false; e.dataset.timeout = AL.timeout; barra(); el('estoubem').focus();
   on('estoubem', () => { const m = Math.max(c.silenciar_min, perfil().int.cooldown_min); S.pul.silencioAte = agora() + m * 60000; S.pul.dispensa = {t:agora(), z:Math.max(z, Pulseira.z || 0)};
-    registrar('pulseira', S.nivel, `Paciente disse que está bem: alertas da pulseira silenciados por ${duracao(m)}; nas próximas ${duracao(c.reavaliar_min)}, novo alerta só se piorar`); store.gravar(); fecharAlerta(); });
+    registrar('pulseira', S.nivel, `Paciente disse que está bem: alertas da pulseira silenciados por ${duracao(m)}; nas próximas ${duracao(c.reavaliar_min)}, novo alerta só se piorar`); store.gravar(); fecharAlerta(); toast(T.positivo.estou_bem); });
   on('precisoajuda', () => crise('Você pediu ajuda no check-in da pulseira.', 'pulseira'));
   AL.timer = setInterval(() => {
     if (!AL) return;
@@ -895,11 +895,21 @@ function fecharEma(){ E = null; el('ema').hidden = true; render('emacorpo', '');
 function fimEma(){
   if (!Object.keys(E.r).length) return semResposta();
   const antes = S.nivel;
-  S.ultimaEmaResp = E.r; const fissura = E.r.q22 >= 7;
+  S.ultimaEmaResp = E.r; const fissura = E.r.q22 >= 7, usou = E.r.e_uso === 'sim';
   aplicar(classificar(R.regras.concat(R.regras_ema), {...resp(), ...E.r}), 'check-in');
-  fecharEma(); if (fissura && S.nivel !== 'vermelho') return telaFissura();
+  fecharEma(); if (usou && S.nivel !== 'vermelho') return telaRecaidaEma();
+  if (fissura && S.nivel !== 'vermelho') return telaFissura();
   if (S.nivel !== 'vermelho') toast(T.obrigado_checkin);
   posReclass(antes);
+}
+function telaRecaidaEma(){ // contou no check-in que usou: acolher primeiro, depois oferecer opções
+  tema(temaPaciente(S.nivel)); const opi = [].concat(S.resp.q7 || []).includes('opioides');
+  $(`<div class=acolhe id=acolheema><h1>${esc(T.recaida.acolhe)}</h1><p>${esc(T.recaida.ema)}</p></div>
+  ${opi ? `<p class=card id=tolerancia>${esc(R.ultimo_uso.usei_de_novo.opioides)}</p>` : ''}
+  <button class=big id=atualizauso>Sim, atualizar a data do último uso</button>
+  <a class="btn big sec" target=_blank rel=noopener href="${mapa('CAPS AD UBS')}">Falar com o CAPS AD ou a UBS</a>
+  <button class="big sec" id=agoranao>Agora não</button>`);
+  el('app').dataset.aba = 'sub'; on('atualizauso', useiDeNovo); on('agoranao', () => ir(S.aba));
 }
 function telaFissura(){
   tema('agitacao'); const F = T.fissura;
@@ -911,7 +921,7 @@ function telaFissura(){
 }
 function semResposta(){ // check-in agendado sem resposta = amarelo (contato do CAPS), nunca verde
   const antes = S.nivel;
-  aplicar({nivel:'amarelo', motivos:[{nivel:'amarelo', motivo:'Houve um check-in sem resposta: a equipe deve tentar contato.'}]}, 'check-in');
+  aplicar({nivel:'amarelo', motivos:[{nivel:'amarelo', motivo:'Houve um check-in sem resposta: a equipe deve tentar contato.'}]}, 'check-in'); toast(T.sem_resposta);
   fecharEma(); posReclass(antes);
 }
 function posReclass(antes){

@@ -368,6 +368,8 @@ def test_recaida_sozinha_nao_aciona_samu(page):
         else: page.locator("#emacorpo .op").first.click()
     assert nivel_atual(page) == "amarelo"
     expect(page.locator("#escala")).to_be_hidden()
+    expect(page.locator("#acolheema")).to_contain_text("Isso não apaga o que você já fez")   # acolher primeiro
+    page.click("#agoranao"); expect(page.locator("#acolheamarelo")).to_contain_text("não é motivo de culpa")
 
 
 # ---------- a/b) último uso: uma pergunta, carimbo, "Usei de novo", "Corrigir data" ----------

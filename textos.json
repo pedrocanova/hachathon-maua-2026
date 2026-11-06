@@ -29,7 +29,8 @@
   "recaida": {
     "acolhe": "Obrigado por contar. Isso não apaga o que você já fez.",
     "conquista": "Antes disso, você ficou {tempo} sem usar. Recomeçar faz parte do caminho: você não volta ao zero.",
-    "opcoes": "Se quiser, escolha um próximo passo:"
+    "opcoes": "Se quiser, escolha um próximo passo:",
+    "ema": "Voltar a usar acontece em muitos caminhos de recuperação. Quer atualizar a data do último uso? Assim o acompanhamento fica certo para você."
   },
   "fissura": {
     "titulo": "Essa vontade vai passar",
@@ -86,5 +87,15 @@
     "aviso": "Parabéns: {titulo} Veja no Início."
   },
   "obrigado_checkin": "Obrigado por responder. Cuidar de você um pouco a cada dia faz diferença.",
-  "obrigado_triagem": "Obrigado por responder. Você já deu um passo importante."
+  "obrigado_triagem": "Obrigado por responder. Você já deu um passo importante.",
+  "positivo": {
+    "_nota": "Retorno positivo em momentos de cuidado. Sem placar de sequência, sem promessas. Nunca nas telas de emergência.",
+    "respirar": "Muito bem. Você tirou um momento para cuidar de você.",
+    "estou_bem": "Que bom que você está bem. Seguimos com você.",
+    "treino_fim": "Treino concluído. Mexer o corpo também é cuidado. O monitoramento completo voltou.",
+    "complementares": "Obrigado por completar. Isso ajuda a sua equipe a cuidar melhor de você.",
+    "ultimo_uso": "Pronto, atualizado. Obrigado por manter suas informações em dia."
+  },
+  "amarelo_acolhe": "Isso não é motivo de culpa: é um cuidado a mais. A equipe do CAPS AD ou da UBS está aí para ajudar você.",
+  "sem_resposta": "Tudo bem não conseguir responder agora. A equipe pode tentar falar com você, sem pressa."
 }
